@@ -1,0 +1,78 @@
+
+
+module fir_filter_8tap (
+    input clk,                // Clock signal
+    input rst,                // Reset signal
+    input [15:0] x_in,        // 16-bit input signal
+    output reg [31:0] y_out        // 32-bit output signal
+);
+
+    // Parameters
+    parameter N = 8;               // Number of taps
+    parameter COEFF_WIDTH = 16;    // Coefficient width
+    parameter DATA_WIDTH = 16;      // Data width
+
+    // Coefficients (example values)
+    wire [COEFF_WIDTH-1:0] coeffs0 = 16'hFFFF;
+	wire [COEFF_WIDTH-1:0] coeffs1 = 16'hFFFF;
+	wire [COEFF_WIDTH-1:0] coeffs2 = 16'hFFFF;
+	wire [COEFF_WIDTH-1:0] coeffs3 = 16'hFFFF;
+	wire [COEFF_WIDTH-1:0] coeffs4 = 16'hFFFF;
+	wire [COEFF_WIDTH-1:0] coeffs5 = 16'hFFFF;
+	wire [COEFF_WIDTH-1:0] coeffs6 = 16'hFFFF;
+	wire [COEFF_WIDTH-1:0] coeffs7 = 16'hFFFF;
+
+    // Shift register to hold the last N inputs
+    reg [DATA_WIDTH-1:0] x_reg [0:N-1];
+
+    // Output register
+    reg [31:0] acc; // Accumulator for output
+
+    // Process input and compute output
+    always @(posedge clk) begin
+        if (rst) begin
+            // Reset output and shift register
+            y_out <= 32'b0;
+            acc <= 32'b0;
+            x_reg[0] <= 16'b0;
+            x_reg[1] <= 16'b0;
+            x_reg[2] <= 16'b0;
+            x_reg[3] <= 16'b0;
+            x_reg[4] <= 16'b0;
+            x_reg[5] <= 16'b0;
+            x_reg[6] <= 16'b0;
+            x_reg[7] <= 16'b0;
+        end else begin
+            // Shift the input samples
+            x_reg[7] <= x_reg[6];
+            x_reg[6] <= x_reg[5];
+            x_reg[5] <= x_reg[4];
+            x_reg[4] <= x_reg[3];
+            x_reg[3] <= x_reg[2];
+            x_reg[2] <= x_reg[1];
+            x_reg[1] <= x_reg[0];
+            x_reg[0] <= x_in; // New input sample
+
+            // Compute the output using the FIR formula
+            acc = (x_reg[0] * coeffs0) +
+                  (x_reg[1] * coeffs1) +
+                  (x_reg[2] * coeffs2) +
+                  (x_reg[3] * coeffs3) +
+                  (x_reg[4] * coeffs4) +
+                  (x_reg[5] * coeffs5) +
+                  (x_reg[6] * coeffs6) +
+                  (x_reg[7] * coeffs7);
+		end
+
+    end
+	
+	always @(posedge clk) begin
+        if (rst) begin
+			y_out = 32'h0000;
+		end
+		else
+			y_out <= acc; // Assign the accumulated value to output
+        end
+	
+
+endmodule

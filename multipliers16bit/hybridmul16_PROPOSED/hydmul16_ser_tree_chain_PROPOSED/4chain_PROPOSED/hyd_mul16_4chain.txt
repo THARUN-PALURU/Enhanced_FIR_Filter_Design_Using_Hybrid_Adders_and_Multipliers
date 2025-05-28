@@ -1,0 +1,204 @@
+
+
+module hyd_mul16_4chain(
+    input  [15:0] A,      // 16-bit multiplicand
+    input  [15:0] B,      // 16-bit multiplier
+    input         en,     // Enable signal
+    output [31:0] Product // 32-bit product output
+);
+    //======================================================================
+    // Stage 0: Partial Product Generation (with shifting)
+    // Each partial product is generated as:
+    //    PPi = {16'b0, (A & {16{B[i]}})} << i
+    reg [31:0] PP0, PP1, PP2, PP3, PP4, PP5, PP6, PP7;
+    reg [31:0] PP8, PP9, PP10, PP11, PP12, PP13, PP14, PP15;
+    
+    always @(*) begin
+        if (en) begin
+            PP0  = {16'b0, (A & {16{B[0]}})}  << 0;
+            PP1  = {16'b0, (A & {16{B[1]}})}  << 1;
+            PP2  = {16'b0, (A & {16{B[2]}})}  << 2;
+            PP3  = {16'b0, (A & {16{B[3]}})}  << 3;
+            PP4  = {16'b0, (A & {16{B[4]}})}  << 4;
+            PP5  = {16'b0, (A & {16{B[5]}})}  << 5;
+            PP6  = {16'b0, (A & {16{B[6]}})}  << 6;
+            PP7  = {16'b0, (A & {16{B[7]}})}  << 7;
+            PP8  = {16'b0, (A & {16{B[8]}})}  << 8;
+            PP9  = {16'b0, (A & {16{B[9]}})}  << 9;
+            PP10 = {16'b0, (A & {16{B[10]}})} << 10;
+            PP11 = {16'b0, (A & {16{B[11]}})} << 11;
+            PP12 = {16'b0, (A & {16{B[12]}})} << 12;
+            PP13 = {16'b0, (A & {16{B[13]}})} << 13;
+            PP14 = {16'b0, (A & {16{B[14]}})} << 14;
+            PP15 = {16'b0, (A & {16{B[15]}})} << 15;
+        end else begin
+            PP0  = 32'b0; PP1  = 32'b0; PP2  = 32'b0; PP3  = 32'b0;
+            PP4  = 32'b0; PP5  = 32'b0; PP6  = 32'b0; PP7  = 32'b0;
+            PP8  = 32'b0; PP9  = 32'b0; PP10 = 32'b0; PP11 = 32'b0;
+            PP12 = 32'b0; PP13 = 32'b0; PP14 = 32'b0; PP15 = 32'b0;
+        end
+    end
+    
+    //======================================================================
+    // Stage 1: 4 Chains of Partial Product Addition
+    // Each chain adds 4 partial products serially.
+    //======================================================================
+    
+    // ----- Chain 1: PP0, PP1, PP2, PP3 -----
+    wire [31:0] chain1_0, chain1_1, chain1_final;
+    wire [2:0]  chain1_cout;
+    
+    hyd_adr32 chain1_adder0 (
+        .A(PP0),
+        .B(PP1),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(chain1_0),
+        .Cout(chain1_cout[0])
+    );
+    hyd_adr32 chain1_adder1 (
+        .A(chain1_0),
+        .B(PP2),
+        .Cin(chain1_cout[0]),
+        .enable(en),
+        .Sum(chain1_1),
+        .Cout(chain1_cout[1])
+    );
+    hyd_adr32 chain1_adder2 (
+        .A(chain1_1),
+        .B(PP3),
+        .Cin(chain1_cout[1]),
+        .enable(en),
+        .Sum(chain1_final),
+        .Cout(chain1_cout[2])
+    );
+    
+    // ----- Chain 2: PP4, PP5, PP6, PP7 -----
+    wire [31:0] chain2_0, chain2_1, chain2_final;
+    wire [2:0]  chain2_cout;
+    
+    hyd_adr32 chain2_adder0 (
+        .A(PP4),
+        .B(PP5),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(chain2_0),
+        .Cout(chain2_cout[0])
+    );
+    hyd_adr32 chain2_adder1 (
+        .A(chain2_0),
+        .B(PP6),
+        .Cin(chain2_cout[0]),
+        .enable(en),
+        .Sum(chain2_1),
+        .Cout(chain2_cout[1])
+    );
+    hyd_adr32 chain2_adder2 (
+        .A(chain2_1),
+        .B(PP7),
+        .Cin(chain2_cout[1]),
+        .enable(en),
+        .Sum(chain2_final),
+        .Cout(chain2_cout[2])
+    );
+    
+    // ----- Chain 3: PP8, PP9, PP10, PP11 -----
+    wire [31:0] chain3_0, chain3_1, chain3_final;
+    wire [2:0]  chain3_cout;
+    
+    hyd_adr32 chain3_adder0 (
+        .A(PP8),
+        .B(PP9),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(chain3_0),
+        .Cout(chain3_cout[0])
+    );
+    hyd_adr32 chain3_adder1 (
+        .A(chain3_0),
+        .B(PP10),
+        .Cin(chain3_cout[0]),
+        .enable(en),
+        .Sum(chain3_1),
+        .Cout(chain3_cout[1])
+    );
+    hyd_adr32 chain3_adder2 (
+        .A(chain3_1),
+        .B(PP11),
+        .Cin(chain3_cout[1]),
+        .enable(en),
+        .Sum(chain3_final),
+        .Cout(chain3_cout[2])
+    );
+    
+    // ----- Chain 4: PP12, PP13, PP14, PP15 -----
+    wire [31:0] chain4_0, chain4_1, chain4_final;
+    wire [2:0]  chain4_cout;
+    
+    hyd_adr32 chain4_adder0 (
+        .A(PP12),
+        .B(PP13),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(chain4_0),
+        .Cout(chain4_cout[0])
+    );
+    hyd_adr32 chain4_adder1 (
+        .A(chain4_0),
+        .B(PP14),
+        .Cin(chain4_cout[0]),
+        .enable(en),
+        .Sum(chain4_1),
+        .Cout(chain4_cout[1])
+    );
+    hyd_adr32 chain4_adder2 (
+        .A(chain4_1),
+        .B(PP15),
+        .Cin(chain4_cout[1]),
+        .enable(en),
+        .Sum(chain4_final),
+        .Cout(chain4_cout[2])
+    );
+    
+    //======================================================================
+    // Stage 2: Combine the 4 chain results in two groups
+    // Group 1: Chain 1 final + Chain 2 final
+    // Group 2: Chain 3 final + Chain 4 final
+    //======================================================================
+    wire [31:0] group1, group2;
+    hyd_adr32 group_adder0 (
+        .A(chain1_final),
+        .B(chain2_final),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(group1),
+        .Cout()
+    );
+    hyd_adr32 group_adder1 (
+        .A(chain3_final),
+        .B(chain4_final),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(group2),
+        .Cout()
+    );
+    
+    //======================================================================
+    // Stage 3: Final Adder to combine group results
+    //======================================================================
+    wire [31:0] final_sum;
+    hyd_adr32 final_adder (
+        .A(group1),
+        .B(group2),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(final_sum),
+        .Cout()
+    );
+    
+    // Final Output: if en is low, output zero; otherwise, output final_sum
+    assign Product = (en ? final_sum : 32'b0);
+    
+endmodule
+
+

@@ -1,0 +1,208 @@
+module hybrid_multiplier_16bit (
+    input  [15:0] A,
+    input  [15:0] B,
+	input         enable, 
+    output [31:0] Product
+);
+
+reg [31:0] PP0,  PP1,  PP2,  PP3,  PP4,  PP5,  PP6,  PP7,
+                PP8,  PP9,  PP10, PP11, PP12, PP13, PP14, PP15;
+				
+	always @(*) begin
+		if(enable) begin
+			 PP0  = {16'b0, (A & {16{B[0]}})}  << 0;
+			 PP1  = {16'b0, (A & {16{B[1]}})}  << 1;
+			 PP2  = {16'b0, (A & {16{B[2]}})}  << 2;
+			 PP3  = {16'b0, (A & {16{B[3]}})}  << 3;
+			 PP4  = {16'b0, (A & {16{B[4]}})}  << 4;
+			 PP5  = {16'b0, (A & {16{B[5]}})}  << 5;
+			 PP6  = {16'b0, (A & {16{B[6]}})}  << 6;
+			 PP7  = {16'b0, (A & {16{B[7]}})}  << 7;
+			 PP8  = {16'b0, (A & {16{B[8]}})}  << 8;
+			 PP9  = {16'b0, (A & {16{B[9]}})}  << 9;
+			 PP10 = {16'b0, (A & {16{B[10]}})} << 10;
+			 PP11 = {16'b0, (A & {16{B[11]}})} << 11;
+			 PP12 = {16'b0, (A & {16{B[12]}})} << 12;
+			 PP13 = {16'b0, (A & {16{B[13]}})} << 13;
+			 PP14 = {16'b0, (A & {16{B[14]}})} << 14;
+			 PP15 = {16'b0, (A & {16{B[15]}})} << 15;
+		end 
+		else 
+            begin
+                PP0 = 32'b0;
+                PP1 = 32'b0;
+                PP2 = 32'b0;
+                PP3 = 32'b0;
+                PP4 = 32'b0;
+                PP5 = 32'b0;
+                PP6 = 32'b0;
+                PP7 = 32'b0;
+                PP8 = 32'b0;
+                PP9 = 32'b0;
+                PP10 = 32'b0;
+                PP11 = 32'b0;
+                PP12 = 32'b0;
+                PP13 = 32'b0;
+                PP14 = 32'b0;
+                PP15 = 32'b0;
+           end
+	end
+
+    //--------------------------------------------------------------------------
+    // Stage 1: Add pairs of partial products using hybrid 32-bit adders.
+    //--------------------------------------------------------------------------
+    wire [31:0] sum1_0, sum1_1, sum1_2, sum1_3, 
+                sum1_4, sum1_5, sum1_6, sum1_7;
+
+    hybrid_32bit_adder adder0 (
+        .A(PP0),
+        .B(PP1),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum1_0),
+        .Cout()
+    );
+
+    hybrid_32bit_adder adder1 (
+        .A(PP2),
+        .B(PP3),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum1_1),
+        .Cout()
+    );
+
+    hybrid_32bit_adder adder2 (
+        .A(PP4),
+        .B(PP5),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum1_2),
+        .Cout()
+    );
+
+    hybrid_32bit_adder adder3 (
+        .A(PP6),
+        .B(PP7),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum1_3),
+        .Cout()
+    );
+
+    hybrid_32bit_adder adder4 (
+        .A(PP8),
+        .B(PP9),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum1_4),
+        .Cout()
+    );
+
+    hybrid_32bit_adder adder5 (
+        .A(PP10),
+        .B(PP11),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum1_5),
+        .Cout()
+    );
+
+    hybrid_32bit_adder adder6 (
+        .A(PP12),
+        .B(PP13),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum1_6),
+        .Cout()
+    );
+
+    hybrid_32bit_adder adder7 (
+        .A(PP14),
+        .B(PP15),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum1_7),
+        .Cout()
+    );
+
+    //--------------------------------------------------------------------------
+    // Stage 2: Add Stage 1 results in pairs.
+    //--------------------------------------------------------------------------
+    wire [31:0] sum2_0, sum2_1, sum2_2, sum2_3;
+
+    hybrid_32bit_adder adder8 (
+        .A(sum1_0),
+        .B(sum1_1),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum2_0),
+        .Cout()
+    );
+
+    hybrid_32bit_adder adder9 (
+        .A(sum1_2),
+        .B(sum1_3),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum2_1),
+        .Cout()
+    );
+
+    hybrid_32bit_adder adder10 (
+        .A(sum1_4),
+        .B(sum1_5),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum2_2),
+        .Cout()
+    );
+
+    hybrid_32bit_adder adder11 (
+        .A(sum1_6),
+        .B(sum1_7),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum2_3),
+        .Cout()
+    );
+
+    //--------------------------------------------------------------------------
+    // Stage 3: Add Stage 2 results in pairs.
+    //--------------------------------------------------------------------------
+    wire [31:0] sum3_0, sum3_1;
+
+    hybrid_32bit_adder adder12 (
+        .A(sum2_0),
+        .B(sum2_1),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum3_0),
+        .Cout()
+    );
+
+    hybrid_32bit_adder adder13 (
+        .A(sum2_2),
+        .B(sum2_3),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(sum3_1),
+        .Cout()
+    );
+
+    //--------------------------------------------------------------------------
+    // Stage 4: Final addition of the two sums.
+    //--------------------------------------------------------------------------
+    wire [31:0] final_sum;
+    hybrid_32bit_adder adder14 (
+        .A(sum3_0),
+        .B(sum3_1),
+        .Cin(1'b0),
+        .enable(1'b1),
+        .Sum(final_sum),
+        .Cout()
+    );
+
+    assign Product = final_sum;
+
+endmodule

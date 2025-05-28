@@ -1,0 +1,207 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 29.01.2025 18:07:59
+// Design Name: 
+// Module Name: ling_32
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module ling_adder_32 (
+    input [31:0] A,
+    input [31:0] B,
+    input C_in,
+    output [31:0] S,
+    output C_out
+);
+
+// Generate (G), Propagate (T), and XOR (P) terms for each bit
+wire [31:0] G, T, P;
+
+// Assign G, T, P for each bit (unrolled)
+assign G[ 0] = A[ 0] & B[ 0];
+assign G[ 1] = A[ 1] & B[ 1];
+assign G[ 2] = A[ 2] & B[ 2];
+assign G[ 3] = A[ 3] & B[ 3];
+assign G[ 4] = A[ 4] & B[ 4];
+assign G[ 5] = A[ 5] & B[ 5];
+assign G[ 6] = A[ 6] & B[ 6];
+assign G[ 7] = A[ 7] & B[ 7];
+assign G[ 8] = A[ 8] & B[ 8];
+assign G[ 9] = A[ 9] & B[ 9];
+assign G[10] = A[10] & B[10];
+assign G[11] = A[11] & B[11];
+assign G[12] = A[12] & B[12];
+assign G[13] = A[13] & B[13];
+assign G[14] = A[14] & B[14];
+assign G[15] = A[15] & B[15];
+assign G[16] = A[16] & B[16];
+assign G[17] = A[17] & B[17];
+assign G[18] = A[18] & B[18];
+assign G[19] = A[19] & B[19];
+assign G[20] = A[20] & B[20];
+assign G[21] = A[21] & B[21];
+assign G[22] = A[22] & B[22];
+assign G[23] = A[23] & B[23];
+assign G[24] = A[24] & B[24];
+assign G[25] = A[25] & B[25];
+assign G[26] = A[26] & B[26];
+assign G[27] = A[27] & B[27];
+assign G[28] = A[28] & B[28];
+assign G[29] = A[29] & B[29];
+assign G[30] = A[30] & B[30];
+assign G[31] = A[31] & B[31];
+
+assign T[ 0] = A[ 0] | B[ 0];
+assign T[ 1] = A[ 1] | B[ 1];
+assign T[ 2] = A[ 2] | B[ 2];
+assign T[ 3] = A[ 3] | B[ 3];
+assign T[ 4] = A[ 4] | B[ 4];
+assign T[ 5] = A[ 5] | B[ 5];
+assign T[ 6] = A[ 6] | B[ 6];
+assign T[ 7] = A[ 7] | B[ 7];
+assign T[ 8] = A[ 8] | B[ 8];
+assign T[ 9] = A[ 9] | B[ 9];
+assign T[10] = A[10] | B[10];
+assign T[11] = A[11] | B[11];
+assign T[12] = A[12] | B[12];
+assign T[13] = A[13] | B[13];
+assign T[14] = A[14] | B[14];
+assign T[15] = A[15] | B[15];
+assign T[16] = A[16] | B[16];
+assign T[17] = A[17] | B[17];
+assign T[18] = A[18] | B[18];
+assign T[19] = A[19] | B[19];
+assign T[20] = A[20] | B[20];
+assign T[21] = A[21] | B[21];
+assign T[22] = A[22] | B[22];
+assign T[23] = A[23] | B[23];
+assign T[24] = A[24] | B[24];
+assign T[25] = A[25] | B[25];
+assign T[26] = A[26] | B[26];
+assign T[27] = A[27] | B[27];
+assign T[28] = A[28] | B[28];
+assign T[29] = A[29] | B[29];
+assign T[30] = A[30] | B[30];
+assign T[31] = A[31] | B[31];
+
+assign P[ 0] = A[ 0] ^ B[ 0];
+assign P[ 1] = A[ 1] ^ B[ 1];
+assign P[ 2] = A[ 2] ^ B[ 2];
+assign P[ 3] = A[ 3] ^ B[ 3];
+assign P[ 4] = A[ 4] ^ B[ 4];
+assign P[ 5] = A[ 5] ^ B[ 5];
+assign P[ 6] = A[ 6] ^ B[ 6];
+assign P[ 7] = A[ 7] ^ B[ 7];
+assign P[ 8] = A[ 8] ^ B[ 8];
+assign P[ 9] = A[ 9] ^ B[ 9];
+assign P[10] = A[10] ^ B[10];
+assign P[11] = A[11] ^ B[11];
+assign P[12] = A[12] ^ B[12];
+assign P[13] = A[13] ^ B[13];
+assign P[14] = A[14] ^ B[14];
+assign P[15] = A[15] ^ B[15];
+assign P[16] = A[16] ^ B[16];
+assign P[17] = A[17] ^ B[17];
+assign P[18] = A[18] ^ B[18];
+assign P[19] = A[19] ^ B[19];
+assign P[20] = A[20] ^ B[20];
+assign P[21] = A[21] ^ B[21];
+assign P[22] = A[22] ^ B[22];
+assign P[23] = A[23] ^ B[23];
+assign P[24] = A[24] ^ B[24];
+assign P[25] = A[25] ^ B[25];
+assign P[26] = A[26] ^ B[26];
+assign P[27] = A[27] ^ B[27];
+assign P[28] = A[28] ^ B[28];
+assign P[29] = A[29] ^ B[29];
+assign P[30] = A[30] ^ B[30];
+assign P[31] = A[31] ^ B[31];
+
+// Compute H signals (pseudo-carries)
+wire [31:0] H;
+
+assign H[ 0] = G[ 0] | (C_in & T[ 0]);
+assign H[ 1] = G[ 1] | (H[ 0] & T[ 1]);
+assign H[ 2] = G[ 2] | (H[ 1] & T[ 2]);
+assign H[ 3] = G[ 3] | (H[ 2] & T[ 3]);
+assign H[ 4] = G[ 4] | (H[ 3] & T[ 4]);
+assign H[ 5] = G[ 5] | (H[ 4] & T[ 5]);
+assign H[ 6] = G[ 6] | (H[ 5] & T[ 6]);
+assign H[ 7] = G[ 7] | (H[ 6] & T[ 7]);
+assign H[ 8] = G[ 8] | (H[ 7] & T[ 8]);
+assign H[ 9] = G[ 9] | (H[ 8] & T[ 9]);
+assign H[10] = G[10] | (H[ 9] & T[10]);
+assign H[11] = G[11] | (H[10] & T[11]);
+assign H[12] = G[12] | (H[11] & T[12]);
+assign H[13] = G[13] | (H[12] & T[13]);
+assign H[14] = G[14] | (H[13] & T[14]);
+assign H[15] = G[15] | (H[14] & T[15]);
+assign H[16] = G[16] | (H[15] & T[16]);
+assign H[17] = G[17] | (H[16] & T[17]);
+assign H[18] = G[18] | (H[17] & T[18]);
+assign H[19] = G[19] | (H[18] & T[19]);
+assign H[20] = G[20] | (H[19] & T[20]);
+assign H[21] = G[21] | (H[20] & T[21]);
+assign H[22] = G[22] | (H[21] & T[22]);
+assign H[23] = G[23] | (H[22] & T[23]);
+assign H[24] = G[24] | (H[23] & T[24]);
+assign H[25] = G[25] | (H[24] & T[25]);
+assign H[26] = G[26] | (H[25] & T[26]);
+assign H[27] = G[27] | (H[26] & T[27]);
+assign H[28] = G[28] | (H[27] & T[28]);
+assign H[29] = G[29] | (H[28] & T[29]);
+assign H[30] = G[30] | (H[29] & T[30]);
+assign H[31] = G[31] | (H[30] & T[31]);
+
+// Compute Sum bits
+assign S[ 0] = P[ 0] ^ C_in;
+assign S[ 1] = P[ 1] ^ H[ 0];
+assign S[ 2] = P[ 2] ^ H[ 1];
+assign S[ 3] = P[ 3] ^ H[ 2];
+assign S[ 4] = P[ 4] ^ H[ 3];
+assign S[ 5] = P[ 5] ^ H[ 4];
+assign S[ 6] = P[ 6] ^ H[ 5];
+assign S[ 7] = P[ 7] ^ H[ 6];
+assign S[ 8] = P[ 8] ^ H[ 7];
+assign S[ 9] = P[ 9] ^ H[ 8];
+assign S[10] = P[10] ^ H[ 9];
+assign S[11] = P[11] ^ H[10];
+assign S[12] = P[12] ^ H[11];
+assign S[13] = P[13] ^ H[12];
+assign S[14] = P[14] ^ H[13];
+assign S[15] = P[15] ^ H[14];
+assign S[16] = P[16] ^ H[15];
+assign S[17] = P[17] ^ H[16];
+assign S[18] = P[18] ^ H[17];
+assign S[19] = P[19] ^ H[18];
+assign S[20] = P[20] ^ H[19];
+assign S[21] = P[21] ^ H[20];
+assign S[22] = P[22] ^ H[21];
+assign S[23] = P[23] ^ H[22];
+assign S[24] = P[24] ^ H[23];
+assign S[25] = P[25] ^ H[24];
+assign S[26] = P[26] ^ H[25];
+assign S[27] = P[27] ^ H[26];
+assign S[28] = P[28] ^ H[27];
+assign S[29] = P[29] ^ H[28];
+assign S[30] = P[30] ^ H[29];
+assign S[31] = P[31] ^ H[30];
+
+// Carry out
+assign C_out = H[31];
+
+endmodule

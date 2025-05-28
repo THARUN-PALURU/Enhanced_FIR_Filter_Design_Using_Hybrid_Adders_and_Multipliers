@@ -1,0 +1,185 @@
+
+
+module hybAdr16_ling8_BKA8 (
+    input  [15:0] A,
+    input  [15:0] B,
+    input         Cin,
+    output [15:0] Sum,
+    output        Cout
+);
+
+    wire [7:0] A_low, A_high;
+    wire [7:0] B_low, B_high;
+    
+    assign A_low  = A[7:0];
+    assign A_high = A[15:8];
+    assign B_low  = B[7:0];
+    assign B_high = B[15:8];
+    
+    wire [7:0] Sum_low, Sum_high;
+    wire       Cout_low, Cout_high;
+    
+    ling_adder_8bit  lower_adder (
+        .A(A_low),
+        .B(B_low),
+        .Cin(Cin),
+        .Sum(Sum_low),
+        .CarryOut(Cout_low)
+    );
+    
+    brent_kung_adder_8bit upper_adder (
+        .a(A_high),
+        .b(B_high),
+        .cin(Cout_low),
+        .sum(Sum_high),
+        .cout(Cout_high)
+    );
+    
+    
+   assign Sum  = {Sum_high, Sum_low};
+    assign Coutt = Cout_high;
+    
+   
+    
+    assign Sum  = out_Sum;
+    assign Cout = out_Cout;
+
+endmodule
+
+
+////////////////////ling_8
+
+
+module ling_adder_8bit (
+    input  [7:0] A,       // Input operand A
+    input  [7:0] B,       // Input operand B
+    input         Cin,     // Carry-in input
+    output [7:0] Sum,     // Sum output
+    output        CarryOut // Final carry output
+);
+
+    // Internal wires for propagate, generate, and Ling carry signals.
+    wire [7:0] P;  // Propagate signals: P = A XOR B.
+    wire [7:0] G;  // Generate signals:  G = A AND B.
+    wire [7:0] H;  // Ling carry signals.
+
+    assign P = A ^ B;
+    assign G = A & B;
+
+    // Compute Ling carry signals explicitly.
+    assign H[0] = G[0] | (P[0] & Cin);
+    assign H[1] = G[1] | (P[1] & H[0]);
+    assign H[2] = G[2] | (P[2] & H[1]);
+    assign H[3] = G[3] | (P[3] & H[2]);
+    assign H[4] = G[4] | (P[4] & H[3]);
+    assign H[5] = G[5] | (P[5] & H[4]);
+    assign H[6] = G[6] | (P[6] & H[5]);
+    assign H[7] = G[7] | (P[7] & H[6]);
+
+    // Compute Sum bits.
+    // Sum[0] = P[0] XOR Cin; for i>=1, Sum[i] = P[i] XOR H[i-1].
+    wire [7:0] computed_sum;
+    assign computed_sum[0] = P[0] ^ Cin;
+    assign computed_sum[1] = P[1] ^ H[0];
+    assign computed_sum[2] = P[2] ^ H[1];
+    assign computed_sum[3] = P[3] ^ H[2];
+    assign computed_sum[4] = P[4] ^ H[3];
+    assign computed_sum[5] = P[5] ^ H[4];
+    assign computed_sum[6] = P[6] ^ H[5];
+    assign computed_sum[7] = P[7] ^ H[6];
+
+    // Final carry-out is H[7].
+    wire computed_carry;
+    assign computed_carry = H[7];
+
+             assign Sum  = computed_sum;
+             assign CarryOut = computed_carry;
+      
+endmodule
+
+////////////////////bka_8
+
+
+module brent_kung_adder_8bit (
+    input  [7:0] a,
+    input  [7:0] b,
+    input        cin,
+    output [7:0] sum,
+    output       cout
+);
+
+    // Preprocessing: Compute bit-level generate and propagate.
+    wire [7:0] g, p;
+    assign g = a & b;
+    assign p = a ^ b;
+
+    // Effective generate for bit 0 (includes cin)
+    wire g0_eff;
+    assign g0_eff = g[0] | (p[0] & cin);
+
+    // --- Up-Sweep Phase for lower 8 bits ---
+    // Stage 1: Form adjacent pairs.
+    // Bits [1:0]:
+    wire g1_0, p1_0;
+    assign g1_0 = g[1] | (p[1] & g0_eff);
+    assign p1_0 = p[1] & p[0];
+    // Bits [3:2]:
+    wire g3_2, p3_2;
+    assign g3_2 = g[3] | (p[3] & g[2]);
+    assign p3_2 = p[3] & p[2];
+
+    // Stage 2: Combine for bits 0-3.
+    wire g3_0, p3_0;
+    assign g3_0 = g3_2 | (p3_2 & g1_0);
+    assign p3_0 = p3_2 & p1_0;
+
+    // Stage 1 for upper nibble (bits 4-7):
+    // Bits [5:4]:
+    wire g5_4, p5_4;
+    assign g5_4 = g[5] | (p[5] & g[4]);
+    assign p5_4 = p[5] & p[4];
+    // Bits [7:6]:
+    wire g7_6, p7_6;
+    assign g7_6 = g[7] | (p[7] & g[6]);
+    assign p7_6 = p[7] & p[6];
+
+    // Stage 2 for upper nibble:
+    wire g7_4, p7_4;
+    assign g7_4 = g7_6 | (p7_6 & g5_4);
+    assign p7_4 = p7_6 & p5_4;
+
+    // Stage 3: Combine lower and upper halves.
+    wire g7_0, p7_0;
+    assign g7_0 = g7_4 | (p7_4 & g3_0);
+    assign p7_0 = p7_4 & p3_0;
+
+    // --- Down-Sweep Phase ---
+    // Build a carry vector c[0..8]:
+    wire [8:0] c;
+    assign c[0] = cin;
+    assign c[1] = g0_eff;
+    assign c[2] = g1_0;
+    assign c[3] = g[2]  | (p[2]  & c[2]);
+    assign c[4] = g3_0;
+    assign c[5] = g[4]  | (p[4]  & c[4]);
+    assign c[6] = g[5]  | (p[5]  & c[5]);
+    assign c[7] = g[6]  | (p[6]  & c[6]);
+    assign c[8] = g7_0;  // overall generate for bits [0:7]
+
+    // Compute sum bits.
+    wire [7:0] computed_sum;
+    assign computed_sum[0] = p[0] ^ cin;
+    assign computed_sum[1] = p[1] ^ c[1];
+    assign computed_sum[2] = p[2] ^ c[2];
+    assign computed_sum[3] = p[3] ^ c[3];
+    assign computed_sum[4] = p[4] ^ c[4];
+    assign computed_sum[5] = p[5] ^ c[5];
+    assign computed_sum[6] = p[6] ^ c[6];
+    assign computed_sum[7] = p[7] ^ c[7];
+    wire computed_cout;
+    assign computed_cout = c[8];
+
+    assign sum = computed_sum;
+    assign cout = computed_cout;
+
+endmodule

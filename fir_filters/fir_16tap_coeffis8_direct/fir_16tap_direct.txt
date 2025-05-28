@@ -1,0 +1,106 @@
+
+module FIR_Filter_16tap#(parameter N=16)(
+    input clk, reset,
+    input [N-1:0] data_in,
+    output reg [2*N-1:0] data_out
+);
+
+// coefficients definition
+// Moving Average Filter, 15th order (16-point FIR filter)
+// sixteen coefficients; 1/(order+1) = 1/16 = 0.0625 
+// 0.0625 x 128(scaling factor) = 8 = 6'b001000
+wire [5:0] b0 =  6'b001000; 
+wire [5:0] b1 =  6'b001000; 
+wire [5:0] b2 =  6'b001000; 
+wire [5:0] b3 =  6'b001000;
+wire [5:0] b4 =  6'b001000;
+wire [5:0] b5 =  6'b001000;
+wire [5:0] b6 =  6'b001000;
+wire [5:0] b7 =  6'b001000;
+wire [5:0] b8 =  6'b001000;
+wire [5:0] b9 =  6'b001000;
+wire [5:0] b10 =  6'b001000;
+wire [5:0] b11 =  6'b001000;
+wire [5:0] b12 =  6'b001000;
+wire [5:0] b13 =  6'b001000;
+wire [5:0] b14 =  6'b001000;
+wire [5:0] b15 =  6'b001000;
+
+wire [N-1:0] x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15; 
+
+// Create delays i.e x[n-1], x[n-2], .. x[n-N]
+// Instantiate D Flip Flops
+DFF DFF0(clk, reset, data_in, x1);  // x[n-1]
+DFF DFF1(clk, reset, x1, x2);       // x[n-2]
+DFF DFF2(clk, reset, x2, x3);       // x[n-3]
+DFF DFF3(clk, reset, x3, x4);       // x[n-4]
+DFF DFF4(clk, reset, x4, x5);       // x[n-5]
+DFF DFF5(clk, reset, x5, x6);       // x[n-6]
+DFF DFF6(clk, reset, x6, x7);       // x[n-7]
+DFF DFF7(clk, reset, x7, x8);       // x[n-8]
+DFF DFF8(clk, reset, x8, x9);       // x[n-9]
+DFF DFF9(clk, reset, x9, x10);      // x[n-10]
+DFF DFF10(clk, reset, x10, x11);    // x[n-11]
+DFF DFF11(clk, reset, x11, x12);    // x[n-12]
+DFF DFF12(clk, reset, x12, x13);    // x[n-13]
+DFF DFF13(clk, reset, x13, x14);    // x[n-14]
+DFF DFF14(clk, reset, x14, x15);    // x[n-15]
+
+//  Multiplication
+wire [2*N-1:0] Mul0, Mul1, Mul2, Mul3, Mul4, Mul5, Mul6, Mul7, Mul8, Mul9, Mul10, Mul11, Mul12, Mul13, Mul14, Mul15;  
+assign Mul0 = data_in * b0; 
+assign Mul1 = x1 * b1;  
+assign Mul2 = x2 * b2;  
+assign Mul3 = x3 * b3;  
+assign Mul4 = x4 * b4;  
+assign Mul5 = x5 * b5;  
+assign Mul6 = x6 * b6;  
+assign Mul7 = x7 * b7;  
+assign Mul8 = x8 * b8;  
+assign Mul9 = x9 * b9;  
+assign Mul10 = x10 * b10;  
+assign Mul11 = x11 * b11;  
+assign Mul12 = x12 * b12;  
+assign Mul13 = x13 * b13;  
+assign Mul14 = x14 * b14;  
+assign Mul15 = x15 * b15;  
+
+// Addition operation
+wire [2*N-1:0] Add_final; 
+assign Add_final = Mul0 + Mul1 + Mul2 + Mul3 + Mul4 + Mul5 + Mul6 + Mul7 + Mul8 + Mul9 + Mul10 + Mul11 + Mul12 + Mul13 + Mul14 + Mul15; 
+
+// Final calculation to output 
+always @(posedge clk) begin
+    if (!reset)
+        data_out <= {2*N{1'b0}}; // Reset output to zero
+    else
+        data_out <= Add_final; 
+end
+
+endmodule
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//delay unit 16bit
+
+
+module DFF #(parameter N = 16)(    
+    input clk, reset,
+    input [N-1:0] data_in,
+    output [N-1:0] data_delayed
+);
+    reg [N-1:0] Q_reg;
+    
+    // Active-low asynchronous reset
+    always @(posedge clk) 
+    begin
+        if (!reset)
+            Q_reg <= {N{1'b0}}; // Reset to all zeros
+        else
+            Q_reg <= data_in;
+    end
+    
+    // Output logic
+    assign data_delayed = Q_reg;
+endmodule

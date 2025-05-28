@@ -1,0 +1,28 @@
+
+
+module tb_mul_16;
+    reg [15:0] A, B;
+    wire [31:0] P;
+    reg [31:0] expected;
+    integer i, j;
+
+    mul16 uut (
+        .A(A),
+        .B(B),
+        .Y(P)
+    );
+
+    initial begin
+        $display("Time(ns) | A      | B      | Expected | Actual   | Pass/Fail");
+       for (i = 16'hFFAB; i < 16'hFFFF; i = i + 1) begin 
+            for (j =16'h9999; j < 16'hFFFF; j = j + 1) begin
+                A = i; B = j;
+                expected = A * B;
+                #50;
+                $display("%0t       | %b | %b | %b | %b | %s", $time, A, B, expected, P, (P == expected) ? "Pass" : "Fail");
+            end
+        end
+        $finish;
+    end
+endmodule
+

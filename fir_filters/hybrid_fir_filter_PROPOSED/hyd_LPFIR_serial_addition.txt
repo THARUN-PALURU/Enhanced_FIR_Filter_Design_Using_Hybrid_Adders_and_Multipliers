@@ -1,0 +1,319 @@
+
+
+module FIR_Filter_16tap#(parameter N = 16)(
+    input clk, reset, enable,
+    input [N-1:0] data_in,
+    output reg [31:0] data_out   // Final result is 32 bits.
+);
+
+  //-------------------------------------------------------------------------
+  // Coefficient definitions for an ECG low-pass optimized filter.
+  // These coefficients are symmetric and provide a linear phase response.
+  //-------------------------------------------------------------------------
+  wire [15:0] b0  = 16'h0003; 
+  wire [15:0] b1  = 16'h0007; 
+  wire [15:0] b2  = 16'h000C; 
+  wire [15:0] b3  = 16'h0012;
+  wire [15:0] b4  = 16'h0019;
+  wire [15:0] b5  = 16'h0020;
+  wire [15:0] b6  = 16'h0026;
+  wire [15:0] b7  = 16'h002A;
+  wire [15:0] b8  = 16'h002A;
+  wire [15:0] b9  = 16'h0026;
+  wire [15:0] b10 = 16'h0020;
+  wire [15:0] b11 = 16'h0019;
+  wire [15:0] b12 = 16'h0012;
+  wire [15:0] b13 = 16'h000C;
+  wire [15:0] b14 = 16'h0007;
+  wire [15:0] b15 = 16'h0003;
+
+  //-------------------------------------------------------------------------
+  // Delay Elements: Instantiate DFFs for taps x[n-1] to x[n-15].
+  // These store previous input samples.
+  //-------------------------------------------------------------------------
+  wire [N-1:0] x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
+
+  DFF DFF0(clk, reset, data_in, x1);   // x[n-1]
+  DFF DFF1(clk, reset, x1, x2);         // x[n-2]
+  DFF DFF2(clk, reset, x2, x3);         // x[n-3]
+  DFF DFF3(clk, reset, x3, x4);         // x[n-4]
+  DFF DFF4(clk, reset, x4, x5);         // x[n-5]
+  DFF DFF5(clk, reset, x5, x6);         // x[n-6]
+  DFF DFF6(clk, reset, x6, x7);         // x[n-7]
+  DFF DFF7(clk, reset, x7, x8);         // x[n-8]
+  DFF DFF8(clk, reset, x8, x9);         // x[n-9]
+  DFF DFF9(clk, reset, x9, x10);        // x[n-10]
+  DFF DFF10(clk, reset, x10, x11);      // x[n-11]
+  DFF DFF11(clk, reset, x11, x12);      // x[n-12]
+  DFF DFF12(clk, reset, x12, x13);      // x[n-13]
+  DFF DFF13(clk, reset, x13, x14);      // x[n-14]
+  DFF DFF14(clk, reset, x14, x15);      // x[n-15]
+
+  //-------------------------------------------------------------------------
+  // Multiplication Stage: Multiply each sample by its corresponding coefficient.
+  // Each hyd_mul16_4chain instance outputs a 32-bit product.
+  //-------------------------------------------------------------------------
+  wire [31:0] Mul0, Mul1, Mul2, Mul3, Mul4, Mul5, Mul6,
+              Mul7, Mul8, Mul9, Mul10, Mul11, Mul12, Mul13, Mul14, Mul15;
+
+  hyd_mul16_4chain m0(
+    .A(data_in),
+    .B(b0),
+    .en(enable),
+    .Product(Mul0)
+  );
+  hyd_mul16_4chain m1(
+    .A(x1),
+    .B(b1),
+    .en(enable),
+    .Product(Mul1)
+  );
+  hyd_mul16_4chain m2(
+    .A(x2),
+    .B(b2),
+    .en(enable),
+    .Product(Mul2)
+  );
+  hyd_mul16_4chain m3(
+    .A(x3),
+    .B(b3),
+    .en(enable),
+    .Product(Mul3)
+  );
+  hyd_mul16_4chain m4(
+    .A(x4),
+    .B(b4),
+    .en(enable),
+    .Product(Mul4)
+  );
+  hyd_mul16_4chain m5(
+    .A(x5),
+    .B(b5),
+    .en(enable),
+    .Product(Mul5)
+  );
+  hyd_mul16_4chain m6(
+    .A(x6),
+    .B(b6),
+    .en(enable),
+    .Product(Mul6)
+  );
+  hyd_mul16_4chain m7(
+    .A(x7),
+    .B(b7),
+    .en(enable),
+    .Product(Mul7)
+  );
+  hyd_mul16_4chain m8(
+    .A(x8),
+    .B(b8),
+    .en(enable),
+    .Product(Mul8)
+  );
+  hyd_mul16_4chain m9(
+    .A(x9),
+    .B(b9),
+    .en(enable),
+    .Product(Mul9)
+  );
+  hyd_mul16_4chain m10(
+    .A(x10),
+    .B(b10),
+    .en(enable),
+    .Product(Mul10)
+  );
+  hyd_mul16_4chain m11(
+    .A(x11),
+    .B(b11),
+    .en(enable),
+    .Product(Mul11)
+  );
+  hyd_mul16_4chain m12(
+    .A(x12),
+    .B(b12),
+    .en(enable),
+    .Product(Mul12)
+  );
+  hyd_mul16_4chain m13(
+    .A(x13),
+    .B(b13),
+    .en(enable),
+    .Product(Mul13)
+  );
+  hyd_mul16_4chain m14(
+    .A(x14),
+    .B(b14),
+    .en(enable),
+    .Product(Mul14)
+  );
+  hyd_mul16_4chain m15(
+    .A(x15),
+    .B(b15),
+    .en(enable),
+    .Product(Mul15)
+  );
+
+  //-------------------------------------------------------------------------
+  // Addition Stage: Cascade hyd_adr32 adders.
+  // Each adder adds two 32-bit values and propagates the carry-out as
+  // the carry-in for the next stage, ensuring full precision accumulation.
+  //-------------------------------------------------------------------------
+  wire [31:0] sum1, sum2, sum3, sum4, sum5, sum6, sum7, sum8;
+  wire [31:0] sum9, sum10, sum11, sum12, sum13, sum14, sum15;
+  wire        cout0, cout1, cout2, cout3, cout4, cout5, cout6, cout7, cout8;
+  wire        cout9, cout10, cout11, cout12, cout13, cout14;
+
+  // Stage 0: Add Mul0 and Mul1 with an initial Cin of 0.
+  hyd_adr32 add0 (
+      .A(Mul0),
+      .B(Mul1),
+      .Cin(1'b0),
+      .enable(enable),
+      .Sum(sum1),
+      .Cout(cout0)
+  );
+  // Stage 1: Add previous sum and Mul2, using previous Cout as Cin.
+  hyd_adr32 add1 (
+      .A(sum1),
+      .B(Mul2),
+      .Cin(cout0),
+      .enable(enable),
+      .Sum(sum2),
+      .Cout(cout1)
+  );
+  // Stage 2: Add sum2 and Mul3.
+  hyd_adr32 add2 (
+      .A(sum2),
+      .B(Mul3),
+      .Cin(cout1),
+      .enable(enable),
+      .Sum(sum3),
+      .Cout(cout2)
+  );
+  // Stage 3: Add sum3 and Mul4.
+  hyd_adr32 add3 (
+      .A(sum3),
+      .B(Mul4),
+      .Cin(cout2),
+      .enable(enable),
+      .Sum(sum4),
+      .Cout(cout3)
+  );
+  // Stage 4: Add sum4 and Mul5.
+  hyd_adr32 add4 (
+      .A(sum4),
+      .B(Mul5),
+      .Cin(cout3),
+      .enable(enable),
+      .Sum(sum5),
+      .Cout(cout4)
+  );
+  // Stage 5: Add sum5 and Mul6.
+  hyd_adr32 add5 (
+      .A(sum5),
+      .B(Mul6),
+      .Cin(cout4),
+      .enable(enable),
+      .Sum(sum6),
+      .Cout(cout5)
+  );
+  // Stage 6: Add sum6 and Mul7.
+  hyd_adr32 add6 (
+      .A(sum6),
+      .B(Mul7),
+      .Cin(cout5),
+      .enable(enable),
+      .Sum(sum7),
+      .Cout(cout6)
+  );
+  // Stage 7: Add sum7 and Mul8.
+  hyd_adr32 add7 (
+      .A(sum7),
+      .B(Mul8),
+      .Cin(cout6),
+      .enable(enable),
+      .Sum(sum8),
+      .Cout(cout7)
+  );
+  // Stage 8: Add sum8 and Mul9.
+  hyd_adr32 add8 (
+      .A(sum8),
+      .B(Mul9),
+      .Cin(cout7),
+      .enable(enable),
+      .Sum(sum9),
+      .Cout(cout8)
+  );
+  // Stage 9: Add sum9 and Mul10.
+  hyd_adr32 add9 (
+      .A(sum9),
+      .B(Mul10),
+      .Cin(cout8),
+      .enable(enable),
+      .Sum(sum10),
+      .Cout(cout9)
+  );
+  // Stage 10: Add sum10 and Mul11.
+  hyd_adr32 add10 (
+      .A(sum10),
+      .B(Mul11),
+      .Cin(cout9),
+      .enable(enable),
+      .Sum(sum11),
+      .Cout(cout10)
+  );
+  // Stage 11: Add sum11 and Mul12.
+  hyd_adr32 add11 (
+      .A(sum11),
+      .B(Mul12),
+      .Cin(cout10),
+      .enable(enable),
+      .Sum(sum12),
+      .Cout(cout11)
+  );
+  // Stage 12: Add sum12 and Mul13.
+  hyd_adr32 add12 (
+      .A(sum12),
+      .B(Mul13),
+      .Cin(cout11),
+      .enable(enable),
+      .Sum(sum13),
+      .Cout(cout12)
+  );
+  // Stage 13: Add sum13 and Mul14.
+  hyd_adr32 add13 (
+      .A(sum13),
+      .B(Mul14),
+      .Cin(cout12),
+      .enable(enable),
+      .Sum(sum14),
+      .Cout(cout13)
+  );
+  // Stage 14: Final addition: add sum14 and Mul15.
+  hyd_adr32 add14 (
+      .A(sum14),
+      .B(Mul15),
+      .Cin(cout13),
+      .enable(enable),
+      .Sum(sum15),
+      .Cout(cout14)
+  );
+
+  //-------------------------------------------------------------------------
+  // Final Output Stage:
+  // If reset is asserted or enable is low, force output to zero.
+  // Otherwise, output the final accumulated sum.
+  //-------------------------------------------------------------------------
+  //
+  // Note: If cout14 is 1, it indicates an overflow. In many designs, you might
+  // saturate the result or flag an error. Here, we simply output the 32-bit sum.
+  //
+  always @(posedge clk) begin
+      if (reset || !enable)
+          data_out <= 32'd0;
+      else
+          data_out <= sum15; // The final 32-bit sum.
+          // Optionally, you can check if (cout14 == 1) and handle overflow.
+  end
+
+endmodule

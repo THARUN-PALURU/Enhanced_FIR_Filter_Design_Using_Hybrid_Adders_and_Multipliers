@@ -1,0 +1,42 @@
+`timescale 1ns / 1ps
+
+module kogge_stone_adder32 (
+    input [31:0] a,
+    input [31:0] b,
+    input cin,
+    output [31:0] sum,
+    output cout
+);
+    // Propagate and Generate signals
+    wire [31:0] P0, P1, P2, P3, P4, P5;
+    wire [31:0] G0, G1, G2, G3, G4, G5;
+
+    // Pre-processing stage
+    assign P0 = a ^ b;
+    assign G0 = (a & b) | ({32{cin}} & (a ^ b) & 32'h00000001);
+
+    // Stage 1 (span=1)
+    assign G1 = G0 | (P0 & {G0[30:0], 1'b0});
+    assign P1 = (P0 & {P0[30:0], 1'b0}) | (P0 & 32'h00000001);
+
+    // Stage 2 (span=2)
+    assign G2 = G1 | (P1 & {G1[29:0], 2'b0});
+    assign P2 = (P1 & {P1[29:0], 2'b0}) | (P1 & 32'h00000003);
+
+    // Stage 3 (span=4)
+    assign G3 = G2 | (P2 & {G2[27:0], 4'b0});
+    assign P3 = (P2 & {P2[27:0], 4'b0}) | (P2 & 32'h0000000F);
+
+    // Stage 4 (span=8)
+    assign G4 = G3 | (P3 & {G3[23:0], 8'b0});
+    assign P4 = (P3 & {P3[23:0], 8'b0}) | (P3 & 32'h000000FF);
+
+    // Stage 5 (span=16)
+    assign G5 = G4 | (P4 & {G4[15:0], 16'b0});
+    assign P5 = (P4 & {P4[15:0], 16'b0}) | (P4 & 32'h0000FFFF);
+
+    // Final sum and carry-out
+    assign sum = P0 ^ {G5[30:0], cin};
+    assign cout = G5[31];
+endmodule
+

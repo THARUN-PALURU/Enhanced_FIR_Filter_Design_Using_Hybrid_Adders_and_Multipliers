@@ -1,0 +1,92 @@
+module hybrid_32bit_adder_4x8_diff_inmux (
+    input  [31:0]A,         // 32-bit operand A
+    input  [31:0]B,         // 32-bit operand B
+    input  Cin,       // Overall carry-in
+    input  enable,    // Global enable signal
+    output reg [31:0]Sum,       // 32-bit sum output
+    output reg Cout       // Overall carry-out
+);
+
+    //-------------------------------------------------------------------------
+    // Input Multiplexing:  
+    // When enable is high, pass the actual inputs. When enable is low, feed zeros.
+    // This forces each sub-adder to compute a zero sum.
+    //-------------------------------------------------------------------------
+    wire [7:0] A0_mux, A1_mux, A2_mux, A3_mux;
+    wire [7:0] B0_mux, B1_mux, B2_mux, B3_mux;
+    wire cin_mux;
+    
+    assign A0_mux = enable ? A[7:0]     : 8'd0;
+    assign B0_mux = enable ? B[7:0]     : 8'd0;
+    assign A1_mux = enable ? A[15:8]    : 8'd0;
+    assign B1_mux = enable ? B[15:8]    : 8'd0;
+    assign A2_mux = enable ? A[23:16]   : 8'd0;
+    assign B2_mux = enable ? B[23:16]   : 8'd0;
+    assign A3_mux = enable ? A[31:24]   : 8'd0;
+    assign B3_mux = enable ? B[31:24]   : 8'd0;
+    assign cin_mux = enable ? Cin        : 1'b0;
+
+    //-------------------------------------------------------------------------
+    // Instantiate four different 8-bit adder blocks.
+    // We pass a constant high (1'b1) as the enable signal to the sub-adder
+    // modules because the gating is handled at the inputs.
+    //-------------------------------------------------------------------------
+    wire [7:0] Sum0, Sum1, Sum2, Sum3;
+    wire Cout0, Cout1, Cout2, Cout3;
+    
+    // Block 0: Ling 8-bit Adder with Enable
+    ling_adder_8bit_en adder0 (
+        .A(A0_mux),
+        .B(B0_mux),
+        .Cin(cin_mux),
+        .enable(1'b1),  // Always enabled internally because inputs are gated externally
+        .Sum(Sum0),
+        .CarryOut(Cout0)
+    );
+    
+    // Block 1: Brent-Kung 8-bit Adder with Enable
+    brent_kung_adder_8_en adder1 (
+        .a(A1_mux),
+        .b(B1_mux),
+        .cin(Cout0),   // Carry-in is the carry-out from block 0
+        .enable(1'b1),
+        .sum(Sum1),
+        .cout(Cout1)
+    );
+    
+    // Block 2: Full Kogge-Stone 8-bit Adder with Enable
+    kogge_stone_8bit_en adder2 (
+        .A(A2_mux),
+        .B(B2_mux),
+        .Cin(Cout1),   // Carry-in from block 1
+        .enable(1'b1),
+        .Sum(Sum2),
+        .Cout(Cout2)
+    );
+    
+    // Block 3: Sparse Kogge-Stone 8-bit Adder with Enable
+    sparse_kogge_stone_adder_8_en adder3 (
+        .a(A3_mux),
+        .b(B3_mux),
+        .cin(Cout2),   // Carry-in from block 2
+        .enable(1'b1),
+        .sum(Sum3),
+        .cout(Cout3)
+    );
+    
+    //-------------------------------------------------------------------------
+    // Combine the 8-bit outputs to form the final 32-bit result.
+    // Since the inputs are multiplexed, if enable is low all sub-adder outputs are zero.
+    //-------------------------------------------------------------------------
+    
+   always @(*) begin
+    if (enable) begin
+      Sum  = {Sum3, Sum2, Sum1, Sum0};
+      Cout = Cout3;
+    end else begin
+      Sum = 32'h0;
+      Cout = 1'b0;
+    end
+  end
+
+endmodule

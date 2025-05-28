@@ -1,0 +1,160 @@
+
+module tb_mul_h16;
+
+    // Common testbench signals
+    reg  [15:0] A;
+    reg  [15:0] B;
+    reg         en;   // Enable signal
+    wire [31:0] pro;  // 32-bit product output
+
+    // Instantiate the multiplier module (mul_h16)
+    mul_h16 uut (
+        .A(A),
+        .B(B),
+        .en(en),
+        .Product(pro)
+    );
+
+    initial begin
+        // Initialize inputs
+        A  = 16'h0000;
+        B  = 16'h0000;
+        en = 1'b0;
+        #10;
+        
+        // ------------------------------
+        // Test Case 0: Both inputs are 0, enable = 1
+        A = 16'h0000; B = 16'h0000; en = 1'b1; #10;
+        check_result(0, A, B, en, pro);
+        
+        // Test Case 1: Minimal non-zero values, enable = 1
+        A = 16'h0001; B = 16'h0001; en = 1'b1; #10;
+        check_result(1, A, B, en, pro);
+        
+        // Test Case 2: Maximum A (all ones) with B = 1, enable = 1
+        A = 16'hFFFF; B = 16'h0001; en = 1'b1; #10;
+        check_result(2, A, B, en, pro);
+        
+        // Test Case 3: Typical values, enable = 1
+        A = 16'h1234; B = 16'h5678; en = 1'b1; #10;
+        check_result(3, A, B, en, pro);
+        
+        // Test Case 4: Patterned values, enable = 1
+        A = 16'hAAAA; B = 16'h5555; en = 1'b1; #10;
+        check_result(4, A, B, en, pro);
+        
+        // Test Case 5: Boundary test with high and low, enable = 1
+        A = 16'h7FFF; B = 16'h8000; en = 1'b1; #10;
+        check_result(5, A, B, en, pro);
+        
+        // Test Case 6: Patterned values, enable = 1
+        A = 16'hABCD; B = 16'hEF99; en = 1'b1; #10;
+        check_result(6, A, B, en, pro);
+        
+        // Test Case 7: Enable is 0; output should be 0
+        A = 16'h0001; B = 16'h8000; en = 1'b0; #10;
+        check_result(7, A, B, en, pro);
+        
+        // Test Case 8: Small patterned values, enable = 1
+        A = 16'h1111; B = 16'h2222; en = 1'b1; #10;
+        check_result(8, A, B, en, pro);
+        
+        // Test Case 9: Random pattern, enable = 1
+        A = 16'hABCD; B = 16'hDCBA; en = 1'b1; #10;
+        check_result(9, A, B, en, pro);
+        
+        // Test Case 10: A = 0, B = all ones, enable = 1
+        A = 16'h0000; B = 16'hFFFF; en = 1'b1; #10;
+        check_result(10, A, B, en, pro);
+        
+        // Test Case 11: A = all ones, B = 0, enable = 1
+        A = 16'hFFFF; B = 16'h0000; en = 1'b1; #10;
+        check_result(11, A, B, en, pro);
+        
+        // Test Case 12: Both A and B at mid-range boundary, enable = 1
+        A = 16'h8000; B = 16'h8000; en = 1'b1; #10;
+        check_result(12, A, B, en, pro);
+        
+        // Test Case 13: A negative pattern (MSB set) with minimal B, enable = 1
+        A = 16'h8000; B = 16'h0001; en = 1'b1; #10;
+        check_result(13, A, B, en, pro);
+        
+        // Test Case 14: Both A and B near maximum positive, enable = 1
+        A = 16'h7FFF; B = 16'h7FFF; en = 1'b1; #10;
+        check_result(14, A, B, en, pro);
+        
+        // Test Case 15: Random values, enable = 1
+        A = 16'h1357; B = 16'h2468; en = 1'b1; #10;
+        check_result(15, A, B, en, pro);
+        
+        // Test Case 16: Repeating pattern, enable = 1
+        A = 16'hAAAA; B = 16'hAAAA; en = 1'b1; #10;
+        check_result(16, A, B, en, pro);
+        
+        // Test Case 17: Complementary pattern, enable = 1
+        A = 16'h5555; B = 16'h5555; en = 1'b1; #10;
+        check_result(17, A, B, en, pro);
+        
+        // Test Case 18: Random hex values, enable = 1
+        A = 16'hDEAD; B = 16'hBEEF; en = 1'b1; #10;
+        check_result(18, A, B, en, pro);
+        
+        // Test Case 19: A mid-range, B all ones, enable = 1
+        A = 16'h1234; B = 16'hFFFF; en = 1'b1; #10;
+        check_result(19, A, B, en, pro);
+        
+        // Test Case 20: A all ones, B mid-range, enable = 1
+        A = 16'hFFFF; B = 16'h1234; en = 1'b1; #10;
+        check_result(20, A, B, en, pro);
+        
+        // Test Case 21: Mixed values, enable = 1
+        A = 16'h8EBC; B = 16'h7AFE; en = 1'b1; #10;
+        check_result(21, A, B, en, pro);
+        
+        // Test Case 22: Max values, but enable is off, enable = 0
+        A = 16'hF0F0; B = 16'h0F0F; en = 1'b0; #10;
+        check_result(22, A, B, en, pro);
+        
+        // Test Case 23: random numbers, enable = 1
+        A = 16'h00A2; B = 16'hF300; en = 1'b1; #10;
+        check_result(23, A, B, en, pro);
+        
+        // Test Case 24: Alternating bit pattern, enable = 1
+        A = 16'hF0F0; B = 16'h0F0F; en = 1'b1; #10;
+        check_result(24, A, B, en, pro);
+		
+		// Test Case 25: Both inputs are maximum, enable = 1
+        A = 16'hFFFF; B = 16'hFFFF; en = 1'b1; #10;
+        check_result(25, A, B, en, pro);
+        
+        $finish;
+    end
+
+    // Task: check_result
+    // Computes the expected product (A * B when enabled, or 0 if disabled)
+    // and compares it with the DUT's output.
+    task check_result(
+        input integer test_num,
+        input [15:0] a_val,
+        input [15:0] b_val,
+        input en_val,
+        input [31:0] result
+    );
+        reg [31:0] expected;
+        begin
+            if (en_val)
+                expected = a_val * b_val;
+            else
+                expected = 32'b0;  // Expect zero when disabled.
+                
+            $display("Test Case %0d: A = %h, B = %h, en = %b", test_num, a_val, b_val, en_val);
+            $display("  Result:   %h", result);
+            $display("  Expected: %h", expected);
+            if (result === expected)
+                $display("  Status: Passed\n");
+            else
+                $display("  Status: Failed\n");
+        end
+    endtask
+
+endmodule

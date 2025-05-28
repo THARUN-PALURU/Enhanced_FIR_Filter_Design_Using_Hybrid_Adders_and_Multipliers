@@ -1,0 +1,173 @@
+module brent_kung_adder_16 (
+    input  [15:0] a,
+    input  [15:0] b,
+    input   cin,
+    output [15:0] sum,
+    output  cout
+);
+
+  // ------------------------------------------------------------------
+  // Preprocessing: Compute bit-level generate and propagate signals.
+  // (We define p = a XOR b and g = a AND b.)
+  // ------------------------------------------------------------------
+  wire [15:0] g, p;
+  assign g = a & b;
+  assign p = a ^ b;
+  
+  // Define an "effective" generate for bit 0 that includes cin.
+  wire g0_eff;
+  assign g0_eff = g[0] | (p[0] & cin);
+  
+  // ------------------------------------------------------------------
+  // Up-Sweep (Prefix Tree) Phase for lower 16 bits
+  // ------------------------------------------------------------------
+  
+  // --- Stage 1: Form adjacent pairs ("black cells") ---
+  // Bits [1:0]
+  wire g1_0, p1_0;
+  assign g1_0 = g[1] | (p[1] & g0_eff);
+  assign p1_0 = p[1] & p[0];
+  
+  // Bits [3:2]
+  wire g3_2, p3_2;
+  assign g3_2 = g[3] | (p[3] & g[2]);
+  assign p3_2 = p[3] & p[2];
+  
+  // Bits [5:4]
+  wire g5_4, p5_4;
+  assign g5_4 = g[5] | (p[5] & g[4]);
+  assign p5_4 = p[5] & p[4];
+  
+  // Bits [7:6]
+  wire g7_6, p7_6;
+  assign g7_6 = g[7] | (p[7] & g[6]);
+  assign p7_6 = p[7] & p[6];
+  
+  // --- Stage 2: Combine Stage1 pairs for bits 0-3 and 4-7 ---
+  // For bits 0-3: combine group [3:2] with group [1:0]
+  wire g3_0, p3_0;
+  assign g3_0 = g3_2 | (p3_2 & g1_0);
+  assign p3_0 = p3_2 & p1_0;
+  
+  // For bits 4-7: combine group [7:6] with group [5:4]
+  wire g7_4, p7_4;
+  assign g7_4 = g7_6 | (p7_6 & g5_4);
+  assign p7_4 = p7_6 & p5_4;
+  
+  // --- Stage 3: Combine Stage2 groups for bits 0-7 ---
+  wire g7_0, p7_0;
+  assign g7_0 = g7_4 | (p7_4 & g3_0);
+  assign p7_0 = p7_4 & p3_0;
+  
+  // --- Stage 1 for upper nibble (bits 8-15) ---
+  // Bits [9:8]
+  wire g9_8, p9_8;
+  assign g9_8 = g[9] | (p[9] & g[8]);
+  assign p9_8 = p[9] & p[8];
+  
+  // Bits [11:10]
+  wire g11_10, p11_10;
+  assign g11_10 = g[11] | (p[11] & g[10]);
+  assign p11_10 = p[11] & p[10];
+  
+  // Combine bits [9:10] into group for [11:8]
+  wire g11_8, p11_8;
+  assign g11_8 = g11_10 | (p11_10 & g9_8);
+  assign p11_8 = p11_10 & p9_8;
+  
+  // Bits [13:12]
+  wire g13_12, p13_12;
+  assign g13_12 = g[13] | (p[13] & g[12]);
+  assign p13_12 = p[13] & p[12];
+  
+  // Bits [15:14]
+  wire g15_14, p15_14;
+  assign g15_14 = g[15] | (p[15] & g[14]);
+  assign p15_14 = p[15] & p[14];
+  
+  // Combine bits [13:12] into group for [15:12]
+  wire g15_12, p15_12;
+  assign g15_12 = g15_14 | (p15_14 & g13_12);
+  assign p15_12 = p15_14 & p13_12;
+  
+  // --- Stage 2 for bits 8-15: Combine the two groups ---
+  wire g15_8, p15_8;
+  assign g15_8 = g15_12 | (p15_12 & g11_8);
+  assign p15_8 = p15_12 & p11_8;
+  
+  // --- Stage 3: Combine lower and upper halves of lower 16 bits ---
+  wire g15_0, p15_0;
+  assign g15_0 = g15_8 | (p15_8 & g7_0);
+  assign p15_0 = p15_8 & p7_0;
+  
+  // ------------------------------------------------------------------
+  // Down-Sweep Phase: Fill in the missing carries.
+  // For positions not directly produced by the tree, we use the simple
+  // grey cell formula: carry = g OR (p AND previous carry).
+  // ------------------------------------------------------------------
+  
+  // Let c[i] denote the carry into bit i.
+  // We have:
+  //   c[0] = cin
+  //   c[1] = carry from bit 0:         = g0_eff
+  //   c[2] = from group [1:0]:          = g1_0
+  //   c[3] = computed as:              = g[2]  | (p[2]  & c[2])
+  //   c[4] = group for bits [0:3]:      = g3_0
+  //   c[5] = g[4]  | (p[4]  & c[4])
+  //   c[6] = g[5]  | (p[5]  & c[5])
+  //   c[7] = g[6]  | (p[6]  & c[6])
+  //   c[8] = group for bits [0:7]:      = g7_0
+  //   c[9]  = g[8]  | (p[8]  & c[8])
+  //   c[10] = g[9]  | (p[9]  & c[9])
+  //   c[11] = g[10] | (p[10] & c[10])
+  //   c[12] = g[11] | (p[11] & c[11])
+  //   c[13] = g[12] | (p[12] & c[12])
+  //   c[14] = g[13] | (p[13] & c[13])
+  //   c[15] = g[14] | (p[14] & c[14])
+  //   c[16] = group for bits [0:15]:  = g15_0
+  // ------------------------------------------------------------------
+  
+  wire [16:0] c;
+  assign c[0] = cin;
+  assign c[1] = g0_eff;
+  assign c[2] = g1_0;
+  assign c[3] = g[2]  | (p[2]  & c[2]);
+  assign c[4] = g3_0;
+  assign c[5] = g[4]  | (p[4]  & c[4]);
+  assign c[6] = g[5]  | (p[5]  & c[5]);
+  assign c[7] = g[6]  | (p[6]  & c[6]);
+  assign c[8] = g7_0;
+  assign c[9]  = g[8]  | (p[8]  & c[8]);
+  assign c[10] = g[9]  | (p[9]  & c[9]);
+  assign c[11] = g[10] | (p[10] & c[10]);
+  assign c[12] = g[11] | (p[11] & c[11]);
+  assign c[13] = g[12] | (p[12] & c[12]);
+  assign c[14] = g[13] | (p[13] & c[13]);
+  assign c[15] = g[14] | (p[14] & c[14]);
+  assign c[16] = g15_0;
+  
+  // ------------------------------------------------------------------
+  // Postprocessing: Compute the sum bits.
+  // Each sum bit = p XOR the carry into that bit.
+  // (For bit 0, sum[0] = p[0] XOR cin.)
+  // ------------------------------------------------------------------
+  assign sum[0]  = p[0]  ^ cin;
+  assign sum[1]  = p[1]  ^ c[1];
+  assign sum[2]  = p[2]  ^ c[2];
+  assign sum[3]  = p[3]  ^ c[3];
+  assign sum[4]  = p[4]  ^ c[4];
+  assign sum[5]  = p[5]  ^ c[5];
+  assign sum[6]  = p[6]  ^ c[6];
+  assign sum[7]  = p[7]  ^ c[7];
+  assign sum[8]  = p[8]  ^ c[8];
+  assign sum[9]  = p[9]  ^ c[9];
+  assign sum[10] = p[10] ^ c[10];
+  assign sum[11] = p[11] ^ c[11];
+  assign sum[12] = p[12] ^ c[12];
+  assign sum[13] = p[13] ^ c[13];
+  assign sum[14] = p[14] ^ c[14];
+  assign sum[15] = p[15] ^ c[15];
+  
+  assign cout = c[16];
+
+endmodule

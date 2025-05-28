@@ -1,0 +1,144 @@
+module brent_kung_adder_16_en (
+    input  [15:0] a,
+    input  [15:0] b,
+    input         cin,
+    input         enable,
+    output [15:0] sum,
+    output        cout
+);
+
+  // Preprocessing: Compute bit-level generate and propagate.
+  wire [15:0] g, p;
+  assign g = a & b;
+  assign p = a ^ b;
+  
+  // Effective generate for bit 0 (includes cin)
+  wire g0_eff;
+  assign g0_eff = g[0] | (p[0] & cin);
+  
+  // --- Up-Sweep Phase for lower 16 bits ---
+  // Stage 1: Adjacent pairs
+  wire g1_0, p1_0;
+  assign g1_0 = g[1] | (p[1] & g0_eff);
+  assign p1_0 = p[1] & p[0];
+  
+  wire g3_2, p3_2;
+  assign g3_2 = g[3] | (p[3] & g[2]);
+  assign p3_2 = p[3] & p[2];
+  
+  wire g5_4, p5_4;
+  assign g5_4 = g[5] | (p[5] & g[4]);
+  assign p5_4 = p[5] & p[4];
+  
+  wire g7_6, p7_6;
+  assign g7_6 = g[7] | (p[7] & g[6]);
+  assign p7_6 = p[7] & p[6];
+  
+  // Stage 2: Combine adjacent pairs
+  wire g3_0, p3_0;
+  assign g3_0 = g3_2 | (p3_2 & g1_0);
+  assign p3_0 = p3_2 & p1_0;
+  
+  wire g7_4, p7_4;
+  assign g7_4 = g7_6 | (p7_6 & g5_4);
+  assign p7_4 = p7_6 & p5_4;
+  
+  // Stage 3: Combine for bits 0-7
+  wire g7_0, p7_0;
+  assign g7_0 = g7_4 | (p7_4 & g3_0);
+  assign p7_0 = p7_4 & p3_0;
+  
+  // --- Upper nibble (bits 8-15) ---
+  // Stage 1 for bits 9:8 and 11:10, 13:12 and 15:14
+  wire g9_8, p9_8;
+  assign g9_8 = g[9] | (p[9] & g[8]);
+  assign p9_8 = p[9] & p[8];
+  
+  wire g11_10, p11_10;
+  assign g11_10 = g[11] | (p[11] & g[10]);
+  assign p11_10 = p[11] & p[10];
+  
+  wire g11_8, p11_8;
+  assign g11_8 = g11_10 | (p11_10 & g9_8);
+  assign p11_8 = p11_10 & p9_8;
+  
+  wire g13_12, p13_12;
+  assign g13_12 = g[13] | (p[13] & g[12]);
+  assign p13_12 = p[13] & p[12];
+  
+  wire g15_14, p15_14;
+  assign g15_14 = g[15] | (p[15] & g[14]);
+  assign p15_14 = p[15] & p[14];
+  
+  wire g15_12, p15_12;
+  assign g15_12 = g15_14 | (p15_14 & g13_12);
+  assign p15_12 = p15_14 & p13_12;
+  
+  // Stage 2 for bits 8-15
+  wire g15_8, p15_8;
+  assign g15_8 = g15_12 | (p15_12 & g11_8);
+  assign p15_8 = p15_12 & p11_8;
+  
+  // Stage 3: Combine lower and upper halves of lower 16 bits
+  wire g15_0, p15_0;
+  assign g15_0 = g15_8 | (p15_8 & g7_0);
+  assign p15_0 = p15_8 & p7_0;
+  
+  // --- Down-Sweep Phase ---
+  // Compute individual carries. (c[0] = cin, c[1]=g0_eff, etc.)
+  wire [16:0] c;
+  assign c[0] = cin;
+  assign c[1] = g0_eff;
+  assign c[2] = g1_0;
+  assign c[3] = g[2]  | (p[2]  & c[2]);
+  assign c[4] = g3_0;
+  assign c[5] = g[4]  | (p[4]  & c[4]);
+  assign c[6] = g[5]  | (p[5]  & c[5]);
+  assign c[7] = g[6]  | (p[6]  & c[6]);
+  assign c[8] = g7_0;
+  assign c[9]  = g[8]  | (p[8]  & c[8]);
+  assign c[10] = g[9]  | (p[9]  & c[9]);
+  assign c[11] = g[10] | (p[10] & c[10]);
+  assign c[12] = g[11] | (p[11] & c[11]);
+  assign c[13] = g[12] | (p[12] & c[12]);
+  assign c[14] = g[13] | (p[13] & c[13]);
+  assign c[15] = g[14] | (p[14] & c[14]);
+  assign c[16] = g15_0; // Overall carry for bits [0:15]
+  
+  // Compute the sum bits.
+  wire [15:0] computed_sum;
+  assign computed_sum[0]  = p[0]  ^ cin;
+  assign computed_sum[1]  = p[1]  ^ c[1];
+  assign computed_sum[2]  = p[2]  ^ c[2];
+  assign computed_sum[3]  = p[3]  ^ c[3];
+  assign computed_sum[4]  = p[4]  ^ c[4];
+  assign computed_sum[5]  = p[5]  ^ c[5];
+  assign computed_sum[6]  = p[6]  ^ c[6];
+  assign computed_sum[7]  = p[7]  ^ c[7];
+  assign computed_sum[8]  = p[8]  ^ c[8];
+  assign computed_sum[9]  = p[9]  ^ c[9];
+  assign computed_sum[10] = p[10] ^ c[10];
+  assign computed_sum[11] = p[11] ^ c[11];
+  assign computed_sum[12] = p[12] ^ c[12];
+  assign computed_sum[13] = p[13] ^ c[13];
+  assign computed_sum[14] = p[14] ^ c[14];
+  assign computed_sum[15] = p[15] ^ c[15];
+  
+  // Use an always block with if-else for the final outputs.
+  reg [15:0] out_sum;
+  reg        out_cout;
+
+  always @(*) begin
+    if (enable) begin
+      out_sum  = computed_sum;
+      out_cout = c[16];
+    end else begin
+      out_sum  = 16'd0;
+      out_cout = 1'b0;
+    end
+  end
+
+  assign sum  = out_sum;
+  assign cout = out_cout;
+
+endmodule

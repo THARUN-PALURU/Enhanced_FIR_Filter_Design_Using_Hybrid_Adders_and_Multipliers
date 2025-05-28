@@ -1,0 +1,96 @@
+
+module DFF_tb;
+    parameter N = 16;  // Data width
+
+    reg clk;
+    reg reset;
+    reg [N-1:0] data_in;
+    wire [N-1:0] data_delayed;
+    
+    // Register to hold the expected (previous) data_in.
+    reg [N-1:0] prev_data;
+
+    // Instantiate the Device Under Test (DUT)
+    DFF_16bit #(N) uut (
+        .clk(clk),
+        .reset(reset),
+        .data_in(data_in),
+        .data_delayed(data_delayed)
+    );
+    
+    // Clock Generation: 10 ns period.
+    initial begin
+        clk = 0;
+        forever #5 clk = ~clk;
+    end
+
+    // Update prev_data on every positive clock edge.
+    // When reset is high, prev_data is forced to 0.
+    always @(posedge clk) begin
+        if (reset)
+            prev_data <= {N{1'b0}};
+        else
+            prev_data <= data_in;
+    end
+
+    // At each positive clock edge, after a slight delay, check that
+    // the DFF output equals the value of data_in from the previous cycle.
+    always @(posedge clk) begin
+    
+        
+        #1;  // Wait 1 ns for the output to settle.
+        $display("at time %0t: input data is: %h and reset is: %b", $time, data_in, reset);
+        if (data_delayed !== prev_data)
+            $display("ERROR at time %0t: Expected %h, but got %h", $time, prev_data, data_delayed);
+        else
+            $display("PASS at time %0t: dealayed Data i.e: %h  matched with expected output i.e: %h ", $time, data_delayed, prev_data);
+    end
+
+    // Test Sequence (runs approximately 1000 ns)
+    initial begin
+        $display("\n===== DFF Testbench Started =====\n");
+        
+        // Start with reset asserted (active high) so output is 0.
+        reset = 1;
+        data_in = 16'h0000;
+        #15;  // Wait a few clock edges.
+        
+        // Release reset.
+        reset = 0;
+        
+        // Now drive a series of stimulus values.
+        // The expected behavior: on the next posedge, data_delayed equals the previous data_in.
+        
+        #10 data_in = 16'hAAAA;  // Cycle 1
+        #10 data_in = 16'h5555;  // Cycle 2
+        #10 data_in = 16'hFFFF;  // Cycle 3
+        #10 data_in = 16'hABC;  // Cycle 4
+        #10 data_in = 16'h0F0F;  // Cycle 5
+        #10 data_in = 16'hF0F0;  // Cycle 6
+        #10 data_in = 16'hAAAA;  // Cycle 7
+        #10 data_in = 16'h1111;  // Cycle 8
+        #10 data_in = 16'h2222;  // Cycle 9
+        #10 data_in = 16'h3333;  // Cycle 10
+        #10 data_in = 16'h4444;  // Cycle 11
+        #10 data_in = 16'h5555;  // Cycle 12
+        #10 data_in = 16'h6666;  // Cycle 13
+        #10 data_in = 16'h7777;  // Cycle 14
+        #10 data_in = 16'h8888;  // Cycle 15
+        #10 data_in = 16'h9999;  // Cycle 16
+        #10 reset = 1;
+		#10 data_in = 16'h1234;	 // cycle 17
+		#10 reset = 0;
+		#10 data_in = 16'h0000;  // Cycle 18
+		#10 data_in = 16'hFFED;  // Cycle 19
+		#10 data_in = 16'h10FF;	 // Cycle 20
+		
+		#10;
+        
+        $display("\n===== DFF Testbench Completed =====\n");
+        $finish;
+    end
+endmodule
+
+
+
+

@@ -1,0 +1,41 @@
+`timescale 1ns / 1ps
+
+module kogge_stone_adder (
+    input [31:0] a,
+    input [31:0] b,
+    input cin,
+    output [31:0] sum,
+    output cout
+);
+
+    // Propagate and Generate signals
+    wire [31:0] P [0:5];
+    wire [31:0] G [0:5];
+    
+    // Pre-processing stage
+    assign P[0] = a ^ b;
+    assign G[0] = (a & b) | ({32{cin}} & (a ^ b) & 32'h00000001);
+
+    // Parallel prefix computation
+    genvar k, i;
+    generate
+        for (k = 0; k < 5; k = k + 1) begin : stage
+            for (i = 0; i < 32; i = i + 1) begin : bit
+                if (i >= (1 << k)) begin
+                    assign G[k+1][i] = G[k][i] | (P[k][i] & G[k][i - (1 << k)]);
+                    assign P[k+1][i] = P[k][i] & P[k][i - (1 << k)];
+                end else begin
+                    assign G[k+1][i] = G[k][i];
+                    assign P[k+1][i] = P[k][i];
+                end
+            end
+        end
+    endgenerate
+
+    // Sum computation
+    assign sum = P[0] ^ {G[5][30:0], cin};
+    
+    // Carry-out computation
+    assign cout = G[5][31];
+
+endmodule

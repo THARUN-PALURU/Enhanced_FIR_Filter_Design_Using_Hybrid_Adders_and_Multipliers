@@ -1,0 +1,182 @@
+
+
+module tb_adder_8bit;
+
+    // Common testbench signals (8-bit operands)
+    reg  [7:0] A, B;
+    reg        Cin;
+    reg        enable;
+    
+    wire [7:0] Sum;
+    wire       CarryOut;
+    
+    //-------------------------------------------------------------------------
+    // Uncomment ONE of the following UUT instantiations to test that adder.
+    //-------------------------------------------------------------------------
+    
+    // 1. Sparse Kogge–Stone 8-bit Adder with Enable
+    // sparse_kogge_stone_adder_8_en uut (
+    //     .a(A),
+    //     .b(B),
+    //     .cin(Cin),
+    //     .enable(enable),
+    //     .sum(Sum),
+    //     .cout(CarryOut)
+    // );
+    
+    // 2. Brent–Kung 8-bit Adder with Enable
+    // brent_kung_adder_8_en uut (
+    //     .a(A),
+    //     .b(B),
+    //     .cin(Cin),
+    //     .enable(enable),
+    //     .sum(Sum),
+    //     .cout(CarryOut)
+    // );
+    
+    // 3. Full Kogge–Stone 8-bit Adder with Enable
+    // kogge_stone_8bit_en uut (
+    //     .A(A),
+    //     .B(B),
+    //     .Cin(Cin),
+    //     .enable(enable),
+    //     .Sum(Sum),
+    //     .Cout(CarryOut)
+    // );
+    
+    // 4. Ling 8-bit Adder with Enable
+    // ling_adder_8bit_en uut (
+    //     .A(A),
+    //     .B(B),
+    //     .Cin(Cin),
+    //     .enable(enable),
+    //     .Sum(Sum),
+    //     .CarryOut(CarryOut)
+    // );
+    
+    //-------------------------------------------------------------------------
+    // Waveform dump for simulation viewing
+    //-------------------------------------------------------------------------
+    initial begin
+        $dumpfile("tb_adder_8bit.vcd");
+        $dumpvars(0, tb_adder_8bit);
+    end
+
+    //-------------------------------------------------------------------------
+    // Apply test cases (do not change these test cases)
+    //-------------------------------------------------------------------------
+    initial begin
+        // Test Case 0: All zeros with enable high.
+        A = 8'h00; B = 8'h00; Cin = 0; enable = 1'b1; #10;
+        check_result(0, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 1: Simple addition, enable high.
+        A = 8'h01; B = 8'h01; Cin = 0; enable = 1'b1; #10;
+        check_result(1, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 2: Simple addition with carry, enable high.
+        A = 8'h01; B = 8'h01; Cin = 1; enable = 1'b1; #10;
+        check_result(2, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 3: Overflow case, enable high.
+        A = 8'hFF; B = 8'h01; Cin = 0; enable = 1'b1; #10;
+        check_result(3, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 4: Maximum positive values, enable high.
+        // For an 8-bit adder, maximum positive is 7F and minimum is 80.
+        A = 8'h7F; B = 8'h80; Cin = 0; enable = 1'b1; #10;
+        check_result(4, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 5: Random values, enable high.
+        A = 8'h12; B = 8'h78; Cin = 0; enable = 1'b1; #10;
+        check_result(5, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 6: Random values with carry, enable high.
+        A = 8'hAB; B = 8'hF1; Cin = 1; enable = 1'b1; #10;
+        check_result(6, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 7: Zero and maximum value, enable high.
+        A = 8'h00; B = 8'hFF; Cin = 0; enable = 1'b1; #10;
+        check_result(7, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 8: Maximum values with carry, enable high.
+        A = 8'hFF; B = 8'hFF; Cin = 1; enable = 1'b1; #10;
+        check_result(8, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 9: Alternating bits, enable high.
+        A = 8'hAA; B = 8'h55; Cin = 0; enable = 1'b1; #10;
+        check_result(9, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 10: All zeros with carry, enable high.
+        A = 8'h00; B = 8'h00; Cin = 1; enable = 1'b1; #10;
+        check_result(10, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 11: Edge case - adding two maximum values, enable high.
+        A = 8'h7F; B = 8'h7F; Cin = 0; enable = 1'b1; #10;
+        check_result(11, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 12: Edge case - adding maximum and minimum, enable high.
+        A = 8'hFF; B = 8'h80; Cin = 0; enable = 1'b1; #10;
+        check_result(12, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 13: Adding negative and positive, enable high.
+        A = 8'h80; B = 8'h7F; Cin = 0; enable = 1'b1; #10;
+        check_result(13, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 14: Random large values, enable high.
+        A = 8'hCD; B = 8'h34; Cin = 0; enable = 1'b1; #10;
+        check_result(14, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 15: Random values with carry, enable high.
+        A = 8'hFF; B = 8'h01; Cin = 1; enable = 1'b1; #10;
+        check_result(15, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 16: Overflow case with enable low (should produce zeros).
+        A = 8'hFF; B = 8'h01; Cin = 1; enable = 1'b0; #10;
+        check_result(16, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 17: High values with no carry, enable high.
+        A = 8'hFF; B = 8'hFF; Cin = 0; enable = 1'b1; #10;
+        check_result(17, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 18: High values with carry, enable high.
+        A = 8'hFF; B = 8'hFF; Cin = 1; enable = 1'b1; #10;
+        check_result(18, A, B, Cin, enable, {CarryOut, Sum});
+
+        $finish;
+    end
+
+    //-------------------------------------------------------------------------
+    // Updated check_result task.
+    // The task now accepts the enable signal as an input.
+    // If enable is low, the expected result is forced to zero.
+    // The result is a 9-bit vector: {CarryOut, Sum}.
+    //-------------------------------------------------------------------------
+    task check_result(
+        input integer test_num,
+        input [7:0] a_val,
+        input [7:0] b_val,
+        input       cin_val,
+        input       enable_val,
+        input [8:0] result  // {CarryOut, Sum}
+    );
+        reg [8:0] expected;
+        begin
+            if (enable_val)
+                expected = a_val + b_val + cin_val;
+            else
+                expected = 9'd0;  // Expect zero when disabled.
+
+            $display("Test Case %0d: A = %h, B = %h, Cin = %b, Enable = %b",
+                     test_num, a_val, b_val, cin_val, enable_val);
+            $display("  Result:   Sum = %h, Cout = %b", result[7:0], result[8]);
+            $display("  Expected: Sum = %h, Cout = %b", expected[7:0], expected[8]);
+
+            if (result === expected)
+                $display("  Status: Passed");
+            else
+                $display("  Status: Failed");
+        end
+    endtask
+
+endmodule

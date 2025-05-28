@@ -1,0 +1,328 @@
+
+
+module FIR_Filter_16tap#(parameter N = 16)(
+    input clk,
+    input reset,
+    input enable,
+    input [N-1:0] data_in,
+    output reg [31:0] data_out   // 32-bit accumulated output
+);
+
+  //-------------------------------------------------------------------------
+  // Coefficient Definitions (16-bit unsigned values)
+  //-------------------------------------------------------------------------
+  wire [15:0] h0  = 16'h0003; 
+  wire [15:0] h1  = 16'h0007; 
+  wire [15:0] h2  = 16'h000C; 
+  wire [15:0] h3  = 16'h0012;
+  wire [15:0] h4  = 16'h0019;
+  wire [15:0] h5  = 16'h0020;
+  wire [15:0] h6  = 16'h0026;
+  wire [15:0] h7  = 16'h002A;
+  wire [15:0] h8  = 16'h002A;
+  wire [15:0] h9  = 16'h0026;
+  wire [15:0] h10 = 16'h0020;
+  wire [15:0] h11 = 16'h0019;
+  wire [15:0] h12 = 16'h0012;
+  wire [15:0] h13 = 16'h000C;
+  wire [15:0] h14 = 16'h0007;
+  wire [15:0] h15 = 16'h0003;
+
+  //-------------------------------------------------------------------------
+  // Delay Chain: Create delayed versions of data_in.
+  // x1 = x[n-1], x2 = x[n-2], ..., x15 = x[n-15]
+  //-------------------------------------------------------------------------
+  wire [N-1:0] x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
+  
+  
+  // Instantiate initial DFFs for the early delays (if not instantiated elsewhere)
+  // For example, you might instantiate DFF0 to DFF3 in the MAC chain.
+  
+
+
+  //-------------------------------------------------------------------------
+  // MAC Chain Implementation:
+  // Each stage multiplies a sample by its coefficient and adds it to the accumulator.
+  //-------------------------------------------------------------------------
+  wire [31:0] prod0, prod1, prod2, prod3, prod4, prod5, prod6, prod7,
+              prod8, prod9, prod10, prod11, prod12, prod13, prod14, prod15;
+  wire [31:0] acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, 
+				acc8, acc9, acc10, acc11, acc12, acc13, acc14;
+  wire [14:0] cout;  // Carry outputs for stages 1-15
+
+  // Stage 0: Multiply current sample by h0
+  hyd_mul16_4chain m0(
+    .A(data_in),
+    .B(h0),
+    .en(enable),
+    .Product(prod0)
+  );
+
+  // Stage 1:
+  DFF DFF0(clk, reset, data_in, x1);
+  hyd_mul16_4chain m1(
+    .A(x1),
+    .B(h1),
+    .en(enable),
+    .Product(prod1)
+  );
+  hyd_adr32 a1(
+    .A(prod0),
+    .B(prod1),
+    .Cin(1'b0),
+    .enable(enable),
+    .Sum(acc0),
+    .Cout(cout[0])
+  );
+  
+  // Stage 2:
+  DFF DFF1(clk, reset, x1, x2);
+  hyd_mul16_4chain m2(
+    .A(x2),
+    .B(h2),
+    .en(enable),
+    .Product(prod2)
+  );
+  hyd_adr32 a2(
+    .A(acc0),
+    .B(prod2),
+    .Cin(cout[0]),
+    .enable(enable),
+    .Sum(acc1),
+    .Cout(cout[1])
+  );
+  
+  // Stage 3:
+  DFF DFF2(clk, reset, x2, x3);
+  hyd_mul16_4chain m3(
+    .A(x3),
+    .B(h3),
+    .en(enable),
+    .Product(prod3)
+  );
+  hyd_adr32 a3(
+    .A(acc1),
+    .B(prod3),
+    .Cin(cout[1]),
+    .enable(enable),
+    .Sum(acc2),
+    .Cout(cout[2])
+  );
+  
+  // Stage 4:
+  DFF DFF3(clk, reset, x3, x4);
+  hyd_mul16_4chain m4(
+    .A(x4),
+    .B(h4),
+    .en(enable),
+    .Product(prod4)
+  );
+  hyd_adr32 a4(
+    .A(acc2),
+    .B(prod4),
+    .Cin(cout[2]),
+    .enable(enable),
+    .Sum(acc3),
+    .Cout(cout[3])
+  );
+  
+  // Stage 5:
+  DFF DFF8(clk, reset, x4, x5);  // x5 = x[n-5]
+  hyd_mul16_4chain m5(
+    .A(x5),
+    .B(h5),
+    .en(enable),
+    .Product(prod5)
+  );
+  hyd_adr32 a5(
+    .A(acc3),
+    .B(prod5),
+    .Cin(cout[3]),
+    .enable(enable),
+    .Sum(acc4),
+    .Cout(cout[4])
+  );
+
+  // Stage 6:
+  DFF DFF9(clk, reset, x5, x6);  // x6 = x[n-6]
+  hyd_mul16_4chain m6(
+    .A(x6),
+    .B(h6),
+    .en(enable),
+    .Product(prod6)
+  );
+  hyd_adr32 a6(
+    .A(acc4),
+    .B(prod6),
+    .Cin(cout[4]),
+    .enable(enable),
+    .Sum(acc5),
+    .Cout(cout[5])
+  );
+
+  // Stage 7:
+  DFF DFF10(clk, reset, x6, x7); // x7 = x[n-7]
+  hyd_mul16_4chain m7(
+    .A(x7),
+    .B(h7),
+    .en(enable),
+    .Product(prod7)
+  );
+  hyd_adr32 a7(
+    .A(acc5),
+    .B(prod7),
+    .Cin(cout[5]),
+    .enable(enable),
+    .Sum(acc6),
+    .Cout(cout[6])
+  );
+
+  // Stage 8:
+  DFF DFF11(clk, reset, x7, x8); // x8 = x[n-8]
+  hyd_mul16_4chain m8(
+    .A(x8),
+    .B(h8),
+    .en(enable),
+    .Product(prod8)
+  );
+  hyd_adr32 a8(
+    .A(acc6),
+    .B(prod8),
+    .Cin(cout[6]),
+    .enable(enable),
+    .Sum(acc7),
+    .Cout(cout[7])
+  );
+
+  // Stage 9:
+  DFF DFF12(clk, reset, x8, x9); // x9 = x[n-9]
+  hyd_mul16_4chain m9(
+    .A(x9),
+    .B(h9),
+    .en(enable),
+    .Product(prod9)
+  );
+  hyd_adr32 a9(
+    .A(acc7),
+    .B(prod9),
+    .Cin(cout[7]),
+    .enable(enable),
+    .Sum(acc8),
+    .Cout(cout[8])
+  );
+
+  // Stage 10:
+  DFF DFF13(clk, reset, x9, x10); // x10 = x[n-10]
+  hyd_mul16_4chain m10(
+    .A(x10),
+    .B(h10),
+    .en(enable),
+    .Product(prod10)
+  );
+  hyd_adr32 a10(
+    .A(acc8),
+    .B(prod10),
+    .Cin(cout[8]),
+    .enable(enable),
+    .Sum(acc9),
+    .Cout(cout[9])
+  );
+
+  // Stage 11:
+  DFF DFF14(clk, reset, x10, x11); // x11 = x[n-11]
+  hyd_mul16_4chain m11(
+    .A(x11),
+    .B(h11),
+    .en(enable),
+    .Product(prod11)
+  );
+  hyd_adr32 a11(
+    .A(acc9),
+    .B(prod11),
+    .Cin(cout[9]),
+    .enable(enable),
+    .Sum(acc10),
+    .Cout(cout[10])
+  );
+
+  // Stage 12:
+  DFF DFF15(clk, reset, x11, x12); // x12 = x[n-12]
+  hyd_mul16_4chain m12(
+    .A(x12),
+    .B(h12),
+    .en(enable),
+    .Product(prod12)
+  );
+  hyd_adr32 a12(
+    .A(acc10),
+    .B(prod12),
+    .Cin(cout[10]),
+    .enable(enable),
+    .Sum(acc11),
+    .Cout(cout[11])
+  );
+
+  // Stage 13:
+  DFF DFF16(clk, reset, x12, x13); // x13 = x[n-13]
+  hyd_mul16_4chain m13(
+    .A(x13),
+    .B(h13),
+    .en(enable),
+    .Product(prod13)
+  );
+  hyd_adr32 a13(
+    .A(acc11),
+    .B(prod13),
+    .Cin(cout[11]),
+    .enable(enable),
+    .Sum(acc12),
+    .Cout(cout[12])
+  );
+
+  // Stage 14:
+  DFF DFF17(clk, reset, x13, x14); // x14 = x[n-14]
+  hyd_mul16_4chain m14(
+    .A(x14),
+    .B(h14),
+    .en(enable),
+    .Product(prod14)
+  );
+  hyd_adr32 a14(
+    .A(acc12),
+    .B(prod14),
+    .Cin(cout[12]),
+    .enable(enable),
+    .Sum(acc13),
+    .Cout(cout[13])
+  );
+
+  // Stage 15:
+  DFF DFF18(clk, reset, x14, x15); // x15 = x[n-15]
+  hyd_mul16_4chain m15(
+    .A(x15),
+    .B(h15),
+    .en(enable),
+    .Product(prod15)
+  );
+  hyd_adr32 a15(
+    .A(acc13),
+    .B(prod15),
+    .Cin(cout[13]),
+    .enable(enable),
+    .Sum(acc14),
+    .Cout(cout[14])
+  );
+  
+  //-------------------------------------------------------------------------
+  // Final Output Stage:
+  // On each rising clock edge, if reset or enable is low, output is forced to zero;
+  // otherwise, output the final accumulated value.
+  //-------------------------------------------------------------------------
+  always @(posedge clk) begin
+      if (reset || !enable)
+          data_out <= 32'd0;
+      else
+          data_out <= acc14;
+  end
+
+endmodule

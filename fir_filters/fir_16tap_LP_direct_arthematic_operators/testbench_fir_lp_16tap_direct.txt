@@ -1,0 +1,155 @@
+
+
+module FIR_Filter_tb;
+    parameter N = 16;
+    
+    reg clk, reset;
+    reg [N-1:0] data_in;
+    wire [31:0] data_out;
+    
+    // Instantiate the FIR filter DUT.
+    // (Assumes the DUT no longer has an enable input.)
+    FIR_Filter_16tap #(N) uut (
+        .clk(clk),
+        .reset(reset),
+        .data_in(data_in),
+        .data_out(data_out)
+    );
+    
+    // Clock generation: 10 ns period.
+    initial clk = 0;
+    always #5 clk = ~clk;
+    
+    //-----------------------------------------------------------------
+    // FIR Filter Coefficients (unsigned)
+    // These must match the coefficients used in the DUT.
+    //-----------------------------------------------------------------
+    reg [15:0] h [0:15];
+    initial begin
+        h[0]  = 16'h0003;  h[1]  = 16'h0007;  h[2]  = 16'h000C;  h[3]  = 16'h0012;
+        h[4]  = 16'h0019;  h[5]  = 16'h0020;  h[6]  = 16'h0026;  h[7]  = 16'h002A;
+        h[8]  = 16'h002A;  h[9]  = 16'h0026;  h[10] = 16'h0020;  h[11] = 16'h0019;
+        h[12] = 16'h0012;  h[13] = 16'h000C;  h[14] = 16'h0007;  h[15] = 16'h0003;
+    end
+
+    //-----------------------------------------------------------------
+    // Expected Output Model (Ideal Convolution)
+    // y[n] = h[0]*x[n] + h[1]*x[n-1] + ... + h[15]*x[n-15]
+    // A delay chain holds the past 16 samples (data_in is x[n]).
+    //-----------------------------------------------------------------
+    reg [15:0] delay_model [0:15];
+    reg [31:0] expected_out;
+    reg [31:0] sum;
+    integer i;
+    
+    // Compute the expected output at each rising edge.
+    always @(posedge clk) begin
+        if (reset)
+            expected_out <= 32'd0;
+        else begin
+            sum = data_in * h[0];
+            for (i = 0; i < 15; i = i + 1)
+                sum = sum + (delay_model[i] * h[i+1]);
+            expected_out <= sum;
+        end
+    end
+    
+    // Update the delay chain on every rising edge.
+    always @(posedge clk) begin
+        if (reset) begin
+            for (i = 0; i < 16; i = i + 1)
+                delay_model[i] <= 16'd0;
+        end else begin
+            // Shift the delay chain:
+            for (i = 15; i > 0; i = i - 1)
+                delay_model[i] <= delay_model[i-1];
+            delay_model[0] <= data_in;
+        end
+    end
+    
+    //-----------------------------------------------------------------
+    // Comparison: After a short delay, compare DUT output with expected output.
+    //-----------------------------------------------------------------
+    always @(posedge clk) begin
+        #3; // Allow outputs to settle.
+        if (data_out !== expected_out)
+            $display("FAILED: Time=%0t, Expected=%h, Got=%h", $time, expected_out, data_out);
+        else
+            $display("PASSED: Time=%0t, Output=%h", $time, data_out);
+    end
+    
+    //-----------------------------------------------------------------
+    // Stimulus Sequences: All input changes occur on clock edges (using #10 delays)
+    //-----------------------------------------------------------------
+    initial begin
+        // Initialization.
+        reset = 1;
+        data_in = 16'd0;
+        #20 reset = 0;
+        
+        // Test Sequence 1: Step Response Test
+        $display("----- Test Sequence 1: Step Response -----");
+        repeat (20) begin
+            #10 data_in = 16'h0001;
+        end
+        #20; // Extra settling.
+        
+        // Test Sequence 2: Low-Frequency Sinusoid
+        $display("----- Test Sequence 2: Low-Frequency Sinusoid -----");
+        reset = 1; #20 reset = 0;
+        #10 data_in = 16'h0200;
+        #10 data_in = 16'h0400;
+        #10 data_in = 16'h0600;
+        #10 data_in = 16'h0800;
+        #10 data_in = 16'h0600;
+        #10 data_in = 16'h0400;
+        #10 data_in = 16'h0200;
+        #10 data_in = 16'h0000;
+        #10 data_in = 16'h0200;
+        #10 data_in = 16'h0400;
+        #10 data_in = 16'h0600;
+        #10 data_in = 16'h0800;
+        #10 data_in = 16'h0600;
+        #10 data_in = 16'h0400;
+        #10 data_in = 16'h0200;
+        #10 data_in = 16'h0000;
+        #20;
+        
+        // Test Sequence 3: High-Frequency Noise on DC
+        $display("----- Test Sequence 3: High-Frequency Noise on DC -----");
+        repeat (10) begin
+            #10 data_in = 16'h1000;
+            #10 data_in = 16'hF000;
+            #10 data_in = 16'h1000;
+            #10 data_in = 16'hEFFF;
+            #10 data_in = 16'h1000;
+        end
+        // Extra settling: hold 0x1000 for 5 clock cycles.
+        repeat (5) begin
+            #10 data_in = 16'h1000;
+        end
+        #20;
+        
+        // Test Sequence 4: Mixed Signal (Low + High Frequency)
+        $display("----- Test Sequence 4: Mixed Signal -----");
+        reset = 1; #20 reset = 0;
+        // Slowly ramp up the baseline.
+        repeat (8) begin
+            #10 data_in = data_in + 16'h0100;
+        end
+        // Superimpose bursts of high-frequency noise.
+        repeat (4) begin
+            #10 data_in = 16'h0800;
+            #10 data_in = 16'hF800;
+            #10 data_in = 16'h0800;
+        end
+        // Extra settling cycles.
+        repeat (5) begin
+            #10 data_in = data_in;
+        end
+        #20;
+        
+        $finish;
+    end
+
+endmodule

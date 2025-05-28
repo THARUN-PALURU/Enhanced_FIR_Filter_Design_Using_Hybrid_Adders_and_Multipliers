@@ -1,0 +1,123 @@
+`timescale 1ns / 1ps
+
+module fir_TB_2();
+
+// -------------------------------------------------------
+// 1) Control Signals
+// -------------------------------------------------------
+reg enable, reset;
+
+initial begin
+  // Initialize signals
+  reset = 1;
+  enable = 0;
+  #10 enable = 1;
+  #10 reset = 0;  // De-assert reset after 10 ns
+end
+
+// -------------------------------------------------------
+// 2) Parameter Definitions
+// -------------------------------------------------------
+localparam N = 16;
+
+// Clock periods
+localparam CORDIC_CLK_PERIOD = 2;  // 500 MHz for Cordic
+localparam FIR_CLK_PERIOD    = 5;  // 200 MHz for FIR filter (was 10 ns → 100 MHz)
+
+// +pi and -pi in fixed-point (1.2.13)
+localparam signed [15:0] PI_POS = 16'h6488; 
+localparam signed [15:0] PI_NEG = 16'h9B78; 
+
+// Phase increments
+localparam signed [15:0] PHASE_INC_1MHz  = 100;   // 1 MHz (was 200 → 2 MHz)
+localparam signed [15:0] PHASE_INC_30MHz = 3000;  // 30 MHz (unchanged)
+
+// -------------------------------------------------------
+// 3) Clock Generation
+// -------------------------------------------------------
+reg cordic_clk = 1'b0;
+reg fir_clk    = 1'b0;
+
+always #(CORDIC_CLK_PERIOD/2) cordic_clk = ~cordic_clk;  // 500 MHz
+always #(FIR_CLK_PERIOD/2)    fir_clk    = ~fir_clk;     // 200 MHz
+
+// -------------------------------------------------------
+// 4) Phase & Sine Generation (Cordic)
+// -------------------------------------------------------
+reg phase_tvalid = 1'b0;
+reg signed [15:0] phase_1MHz  = 0;  
+reg signed [15:0] phase_30MHz = 0;  
+
+wire sincos_1MHz_tvalid, sincos_30MHz_tvalid;
+wire signed [15:0] sin_1MHz, cos_1MHz;
+wire signed [15:0] sin_30MHz, cos_30MHz;
+
+// Synthesis for 1 MHz sine
+cordic_0 cordic_inst_0 (
+  .aclk                (cordic_clk),
+  .s_axis_phase_tvalid (phase_tvalid),
+  .s_axis_phase_tdata  (phase_1MHz),
+  .m_axis_dout_tvalid  (sincos_1MHz_tvalid),
+  .m_axis_dout_tdata   ({sin_1MHz, cos_1MHz})
+);
+
+// Synthesis for 30 MHz sine
+cordic_0 cordic_inst_1 (
+  .aclk                (cordic_clk),
+  .s_axis_phase_tvalid (phase_tvalid),
+  .s_axis_phase_tdata  (phase_30MHz),
+  .m_axis_dout_tvalid  (sincos_30MHz_tvalid),
+  .m_axis_dout_tdata   ({sin_30MHz, cos_30MHz})
+);
+
+// Phase update at 500 MHz
+always @(posedge cordic_clk) begin
+  phase_tvalid <= 1'b1;
+  
+  // 1 MHz phase sweep
+  if (phase_1MHz + PHASE_INC_1MHz < PI_POS)
+    phase_1MHz <= phase_1MHz + PHASE_INC_1MHz;
+  else
+    phase_1MHz <= PI_NEG + (phase_1MHz + PHASE_INC_1MHz - PI_POS);
+
+  // 30 MHz phase sweep (unchanged)
+  if (phase_30MHz + PHASE_INC_30MHz < PI_POS)
+    phase_30MHz <= phase_30MHz + PHASE_INC_30MHz;
+  else
+    phase_30MHz <= PI_NEG + (phase_30MHz + PHASE_INC_30MHz - PI_POS);
+end
+
+// -------------------------------------------------------
+// 5) Noisy Signal Formation at 200 MHz
+// -------------------------------------------------------
+reg  signed [15:0] noisy_signal = 0; 
+wire signed [31:0] filtered_signal;
+
+// Resample the 1 MHz + 30 MHz sum at 200 MHz
+always @(posedge fir_clk) begin
+  // Divide by 2 to prevent overflow
+  noisy_signal <= (sin_1MHz + sin_30MHz) >>> 1; 
+end
+
+// -------------------------------------------------------
+// 6) FIR Filter Instantiation
+// -------------------------------------------------------
+FIR_Filter_16tap #(N) uut (
+  .clk       (fir_clk),
+  .reset     (reset),
+  .enable    (enable),
+  .data_in   (noisy_signal),
+  .data_out  (filtered_signal)
+);
+
+// -------------------------------------------------------
+// 7) Monitoring & Simulation Duration
+// -------------------------------------------------------
+initial begin
+  $monitor("Time=%0t | Noisy=%d | Filtered=%d", $time, noisy_signal, filtered_signal);
+  // At 200 MHz, each clock cycle is 5 ns => 1 microsecond ~ 200 cycles
+  #10000; 
+  $finish;
+end
+
+endmodule

@@ -1,0 +1,156 @@
+
+
+module FIR_Filter_tb;
+    parameter N = 16;
+    reg clk, reset;
+    reg [N-1:0] data_in;
+    wire [2*N-1:0] data_out;
+    
+    // Instantiate the FIR_Filter module
+    FIR_Filter_16tap #(N) uut (
+        .clk(clk),
+        .reset(reset),
+        .data_in(data_in),
+        .data_out(data_out)
+    );
+    
+    // Clock generation: period = 10 ns
+    initial clk = 0;
+    always #5 clk = ~clk;
+    
+    //-----------------------------------------------------------------
+    // Expected Output Model:
+    // The DUT computes a moving average filter:
+    //     data_out = b0*data_in + b1*x1 + b2*x2 + ... + b15*x15
+    // where x1..x15 are outputs of 15 DFFs and b0..b15 are all 8.
+    //-----------------------------------------------------------------
+    
+    reg [N-1:0] delay_model [0:14];  // 15 registers for x1 ... x15
+    reg [2*N-1:0] expected_out;        // expected output value for the current cycle
+    reg [2*N-1:0] sum;               // accumulator for the sum (wider to avoid overflow)
+    integer i;
+    
+    // On asynchronous reset (active low) clear the model and expected value.
+    always @(negedge reset) begin
+        for (i = 0; i < 15; i = i + 1)
+            delay_model[i] <= 0;
+        expected_out <= 0;
+    end
+    
+    // At every rising edge (when reset is active) compute the expected
+    // output and update the delay model.
+    always @(posedge clk) begin
+        if (reset) begin
+            // Compute the sum using the current input and delay model
+            // Each sample is multiplied by 8 (coefficient value)
+            sum = data_in * 8;  // b0 * current sample
+            for (i = 0; i < 14; i = i + 1)
+                sum = sum + (delay_model[i] * 8); // bi+1 * x[n-i-1]
+            sum = sum + (delay_model[14] * 8);    // b15 * x[n-15]
+            
+            expected_out <= sum;
+            
+            
+            
+            // Update the delay_model: shift right and insert current data_in at index 0.
+            for (i = 14; i > 0; i = i - 1)
+                delay_model[i] <= delay_model[i-1];
+            delay_model[0] <= data_in;
+        end
+    end
+    
+    // Compare the expected value with the DUT output after allowing for settling time
+    reg verify_flag;
+    always @(posedge clk) begin
+        verify_flag <= reset;  // Only verify when reset is active
+    end
+    
+    always @(posedge verify_flag) begin
+        #3;  // Allow more time for outputs to stabilize
+        if (data_out !== expected_out) begin
+            $display("Failed: Mismatch at time %0t: Expected %h, Got %h", $time, expected_out, data_out);
+            $display("Difference: %d", $signed(data_out) - $signed(expected_out));
+        end
+        else
+            $display("passed: Match at time %0t: Output %h", $time, expected_out);
+    end
+    
+    //-----------------------------------------------------------------
+    // Stimulus: Two sequences separated by a reset.
+    //-----------------------------------------------------------------
+    initial begin
+        // Initialize signals
+        reset = 0;
+        data_in = 0;
+        
+        // Apply asynchronous reset (active low) and then release it
+        #20 reset = 1;
+        
+        // First stimulus sequence: feed a series of 1's to fill the pipeline
+        #10 data_in = 16'h0001;  // Cycle 0
+        #10 data_in = 16'h0001;  // Cycle 1
+        #10 data_in = 16'h0001;  // Cycle 2
+        #10 data_in = 16'h0001;  // Cycle 3
+        #10 data_in = 16'h0001;  // Cycle 4
+        #10 data_in = 16'h0001;  // Cycle 5
+        #10 data_in = 16'h0001;  // Cycle 6
+        #10 data_in = 16'h0001;  // Cycle 7
+        #10 data_in = 16'h0001;  // Cycle 8
+        #10 data_in = 16'h0001;  // Cycle 9
+        #10 data_in = 16'h0001;  // Cycle 10
+        #10 data_in = 16'h0001;  // Cycle 11
+        #10 data_in = 16'h0001;  // Cycle 12
+        #10 data_in = 16'h0001;  // Cycle 13
+        #10 data_in = 16'h0001;  // Cycle 14
+        #10 data_in = 16'h0001;  // Cycle 15
+        #10 data_in = 16'h0001;  // Cycle 16
+        #10;  // Let it run a few more cycles
+        
+        // Second stimulus sequence:
+        // First, clear the pipeline.
+        #10 reset = 0;  // deassert reset to clear history
+        #20 reset = 1;  // reassert reset
+        
+        // Apply a new sequence
+        #10 data_in = 16'hAB03;  
+        #10 data_in = 16'h3CD0;  
+        #10 data_in = 16'hFFFF;  
+        #10 data_in = 16'h1234;  
+        #10 data_in = 16'h5678;  
+        #10 data_in = 16'h9ABC;
+        #10 data_in = 16'hDEF1;  
+        #10 data_in = 16'hFFEE;
+        
+        #10;
+        
+        // First, clear the pipeline.
+        #10 reset = 0;  // deassert reset to clear history
+        #20 reset = 1;  // reassert reset
+        
+        // Apply a new sequence
+        #10 data_in = 16'hABCD;  
+        #10 data_in = 16'hEF89;  
+        #10 data_in = 16'hFFBD;  
+        #10 data_in = 16'hFFFF;  
+        #10 data_in = 16'h4592;  
+        #10 data_in = 16'h1036;
+        #10 data_in = 16'h3198;  
+        #10 data_in = 16'h0077;  
+        #10 data_in = 16'h8800;  
+        #10 data_in = 16'hABD5;  
+        #10 data_in = 16'hEAFD;  
+        #10 data_in = 16'h5A6F;
+        
+          
+        
+        #10;
+        $finish;
+    end
+    
+    // Optional: Monitor key signals
+    initial begin
+        $monitor("Time=%0t | clk=%b | reset=%b | data_in=%h | data_out=%h | expected=%h", 
+                 $time, clk, reset, data_in, data_out, expected_out);
+    end
+    
+endmodule

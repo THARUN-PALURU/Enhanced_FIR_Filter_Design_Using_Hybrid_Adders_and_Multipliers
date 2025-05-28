@@ -1,0 +1,146 @@
+
+
+module tb_hybrid_adder_32bit;
+
+    // Common testbench signals
+    reg  [31:0]A;
+    reg  [31:0]B;
+    reg Cin;
+    reg enable;
+    
+    wire [31:0] Sum; 
+    wire CarryOut;
+    
+  
+    
+     hybrid_32bit_adder_4x8_diff_inmux uut (
+         .A(A),
+         .B(B),
+         .Cin(Cin),
+         .enable(enable),
+         .Sum(Sum),
+         .Cout(CarryOut)
+     );
+
+    
+   
+    initial begin
+         // Initialize inputs
+        A = 32'h00000000;
+        B = 32'h00000000;
+        Cin = 0;
+        enable = 0;
+        #10;
+        // Test Case 0:
+        A = 32'h00000000; B = 32'h00000000; Cin = 1; enable = 1'b1; #10;
+        check_result(0, A, B, Cin, enable, {CarryOut, Sum});
+        
+        // Test Case 1: 
+        A = 32'h00000001; B = 32'h00010000; Cin = 1; enable = 1'b1; #10;
+        check_result(1, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 2: 
+        A = 32'h0001; B = 32'h0001; Cin = 1; enable = 1'b0; #10;
+        check_result(2, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 3: 
+        A = 16'hFFFF; B = 16'h0001; Cin = 0; enable = 1'b1; #10;
+        check_result(3, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 4: 
+        A = 32'h7FFFFFFF; B = 32'h07FFF800;; Cin = 0; enable = 1'b1; #10;
+        check_result(4, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 5: 
+        A = 32'h7FFF8000; B = 32'h0FFFF000; Cin = 1; enable = 1'b1; #10;
+        check_result(5, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 6: 
+        A = 32'hFFFFABCD; B = 32'hEF01FFFF; Cin = 1; enable = 1'b1; #10;
+        check_result(6, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 7: 
+        A = 32'h0000FFFF; B = 32'hFFFF0000; Cin = 0; enable = 1'b1; #10;
+        check_result(7, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 8: 
+        A = 32'hFFFFABCD; B = 32'hABCDFFFF; Cin = 1; enable = 1'b1; #10;
+        check_result(8, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 9: 
+        A = 32'hAAAAFFFD; B = 32'hFFAB5555; Cin = 0; enable = 1'b1; #10;
+        check_result(9, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 10: 
+        A = 32'h67890000; B = 32'h0000AFDC; Cin = 1; enable = 1'b1; #10;
+        check_result(10, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 11: 
+        A = 32'h12347FFF; B = 16'h7FFF; Cin = 0; enable = 1'b1; #10;
+        check_result(11, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 12: 
+        A = 32'hFFFFFFFF; B = 32'h81239876; Cin = 0; enable = 1'b1; #10;
+        check_result(12, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 13: 
+        A = 32'h80005478; B = 32'hEEEE7FFF; Cin = 0; enable = 1'b1; #10;
+        check_result(13, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 14: 
+        A = 16'hCDEF; B = 16'h1234; Cin = 1; enable = 1'b1; #10;
+        check_result(14, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 15: 
+        A = 16'hFFFF; B = 16'h0001; Cin = 1; enable = 1'b0; #10;
+        check_result(15, A, B, Cin, enable, {CarryOut, Sum});
+
+        // Test Case 16: 
+        A = 32'hFFFFFFFF; B = 32'h00010001; Cin = 1; enable = 1'b1; #10;
+        check_result(16, A, B, Cin, enable, {CarryOut, Sum});
+		
+        // Test Case 17: 
+        A = 32'hFFFFFFFF; B = 32'hFFFFFFFF; Cin = 0; enable = 1'b1; #10;
+        check_result(17, A, B, Cin, enable, {CarryOut, Sum});
+		
+        // Test Case 18: 
+        A = 32'hFFFFFFFF; B = 32'hFFFFFFFF; Cin = 1; enable = 1'b1; #10;
+        check_result(18, A, B, Cin, enable, {CarryOut, Sum});
+
+        $finish;
+    end
+
+    //-------------------------------------------------------------------------
+    // Updated check_result task.
+    // The task now accepts the enable signal as an input.
+    // If enable is low, the expected result is forced to zero.
+    //-------------------------------------------------------------------------
+    task check_result(
+        input integer test_num,
+        input [31:0] a_val,
+        input [31:0] b_val,
+        input cin_val,
+        input enable_val,
+        input [32:0] result  // {CarryOut, Sum}
+    );
+        reg [32:0] expected;
+        begin
+            if (enable_val)
+                expected = a_val + b_val + cin_val;
+            else
+                expected = 32'h0;  // Expect zero when disabled.
+
+            $display("Test Case %0d: A = %h, B = %h, Cin = %b, Enable = %b",
+                     test_num, a_val, b_val, cin_val, enable_val);
+            $display("  Result:   Sum = %h, Cout = %b", result[31:0], result[32]);
+            $display("  Expected: Sum = %h, Cout = %b", expected[31:0], expected[32]);
+
+            if (result === expected)
+                $display("  Status: Passed");
+            else
+                $display("  Status: Failed");
+        end
+    endtask
+
+endmodule
+

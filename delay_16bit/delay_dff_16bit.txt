@@ -1,0 +1,16 @@
+
+module DFF_16bit #(parameter N = 16)(    
+    input clk, reset,
+    input [N-1:0] data_in,
+    output reg [N-1:0] data_delayed
+);
+    
+    // Synchronous Reset (Active High)
+    always @(posedge clk) 
+    begin
+        if (reset)  // Reset condition corrected
+            data_delayed <= {N{1'b0}};  // Reset output to zero
+        else
+            data_delayed <= data_in;  // Capture input on rising edge of clock
+    end
+endmodule

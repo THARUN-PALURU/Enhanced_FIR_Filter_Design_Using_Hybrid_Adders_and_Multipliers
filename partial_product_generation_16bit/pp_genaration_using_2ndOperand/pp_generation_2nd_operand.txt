@@ -1,0 +1,45 @@
+module partial_product_gen_16bit (
+    input  [15:0] A,   // 16-bit multiplicand
+    input  [15:0] B,   // 16-bit multiplier
+	output [31:0] ans
+);
+
+	wire [31:0] PP0;
+    wire [31:0] PP1;
+    wire [31:0] PP2;
+    wire [31:0] PP3;
+    wire [31:0] PP4;
+    wire [31:0] PP5;
+    wire [31:0] PP6;
+    wire [31:0] PP7;
+    wire [31:0] PP8;
+    wire [31:0] PP9;
+    wire [31:0] PP10;
+    wire [31:0] PP11;
+    wire [31:0] PP12;
+    wire [31:0] PP13;
+    wire [31:0] PP14;
+    wire [31:0] PP15;
+
+    // If B[i] is 1 then partial product PPi is A shifted left by i,
+    // zero-extended to 32 bits; otherwise, PPi is 32'b0.
+    assign PP0  = (B[0])  ? {16'b0, A}              : 32'b0;
+    assign PP1  = (B[1])  ? {15'b0, A, 1'b0}        : 32'b0;
+    assign PP2  = (B[2])  ? {14'b0, A, 2'b0}        : 32'b0;
+    assign PP3  = (B[3])  ? {13'b0, A, 3'b0}        : 32'b0;
+    assign PP4  = (B[4])  ? {12'b0, A, 4'b0}        : 32'b0;
+    assign PP5  = (B[5])  ? {11'b0, A, 5'b0}        : 32'b0;
+    assign PP6  = (B[6])  ? {10'b0, A, 6'b0}        : 32'b0;
+    assign PP7  = (B[7])  ? {9'b0,  A, 7'b0}        : 32'b0;
+    assign PP8  = (B[8])  ? {8'b0,  A, 8'b0}        : 32'b0;
+    assign PP9  = (B[9])  ? {7'b0,  A, 9'b0}        : 32'b0;
+    assign PP10 = (B[10]) ? {6'b0,  A, 10'b0}       : 32'b0;
+    assign PP11 = (B[11]) ? {5'b0,  A, 11'b0}       : 32'b0;
+    assign PP12 = (B[12]) ? {4'b0,  A, 12'b0}       : 32'b0;
+    assign PP13 = (B[13]) ? {3'b0,  A, 13'b0}       : 32'b0;
+    assign PP14 = (B[14]) ? {2'b0,  A, 14'b0}       : 32'b0;
+    assign PP15 = (B[15]) ? {1'b0,  A, 15'b0}       : 32'b0;
+	
+	assign ans = PP15;
+
+endmodule

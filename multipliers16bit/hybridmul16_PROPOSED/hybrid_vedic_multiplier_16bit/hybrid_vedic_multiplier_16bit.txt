@@ -1,0 +1,84 @@
+module hybrid_vedic_multiplier_16bit(
+    input  [15:0] A,      // 16-bit multiplicand
+    input  [15:0] B,      // 16-bit multiplier
+    input         en,     // Enable signal
+    output [31:0] Product // 32-bit product output
+);
+
+    // -----------------------------------------------------------
+    // Partial Product Generation using Vedic Multipliers
+    // -----------------------------------------------------------
+    // Instantiate four 8-bit Vedic multipliers to form four 16-bit partial products.
+    wire [15:0] Q0, Q1, Q2, Q3;
+    vedic_8bit v0 (
+        .a(A[7:0]),
+        .b(B[7:0]),
+        .c(Q0)
+    );
+    vedic_8bit v1 (
+        .a(A[15:8]),
+        .b(B[7:0]),
+        .c(Q1)
+    );
+    vedic_8bit v2 (
+        .a(A[7:0]),
+        .b(B[15:8]),
+        .c(Q2)
+    );
+    vedic_8bit v3 (
+        .a(A[15:8]),
+        .b(B[15:8]),
+        .c(Q3)
+    );
+    
+    // Form 32-bit partial products with proper shifting:
+    // Note: The shift is applied only once during partial product generation.
+    wire [31:0] PP0, PP1, PP2, PP3;
+    assign PP0 = {16'b0, Q0};           // No shift
+    assign PP1 = ({16'b0, Q1}) << 8;      // Shift left by 8 bits
+    assign PP2 = ({16'b0, Q2}) << 8;      // Shift left by 8 bits
+    assign PP3 = ({16'b0, Q3}) << 16;     // Shift left by 16 bits
+
+    // -----------------------------------------------------------
+    // Addition using Hybrid Adders (hyd_adr32)
+    // -----------------------------------------------------------
+    // Stage 1: Add PP0 and PP1
+    wire [31:0] S0;
+    hyd_adr32 adder0 (
+        .A(PP0),
+        .B(PP1),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(S0),
+        .Cout()
+    );
+    
+    // Stage 1: Add PP2 and PP3
+    wire [31:0] S1;
+    hyd_adr32 adder1 (
+        .A(PP2),
+        .B(PP3),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(S1),
+        .Cout()
+    );
+    
+    // Stage 2: Final addition of the two sums
+    wire [31:0] S2;
+    hyd_adr32 adder2 (
+        .A(S0),
+        .B(S1),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(S2),
+        .Cout()
+    );
+    
+    // Final output: if enable is low, output 0.
+    assign Product = (en ? S2 : 32'b0);
+
+endmodule
+
+
+

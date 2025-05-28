@@ -1,0 +1,84 @@
+module ling_adder16_en (
+    input  [15:0] A,       // Input operand A
+    input  [15:0] B,       // Input operand B
+    input         Cin,     // Carry-in input
+    input         enable,  // Active-high enable signal
+    output [15:0] Sum,     // Sum output
+    output        CarryOut // Final carry output
+);
+
+    // Internal wires for propagate, generate, and Ling carry signals
+    wire [15:0] P;  // Propagate signals: P[i] = A[i] XOR B[i]
+    wire [15:0] G;  // Generate signals:  G[i] = A[i] AND B[i]
+    wire [15:0] H;  // Ling carry signals
+
+    // Compute propagate and generate signals.
+    assign P = A ^ B;
+    assign G = A & B;
+
+    // Compute Ling carry signals explicitly.
+    // Each Ling carry is computed as: H[i] = G[i] OR (P[i] AND H[i-1]),
+    // with H[0] including the external carry Cin.
+    assign H[0]  = G[0]  | (P[0]  & Cin);
+    assign H[1]  = G[1]  | (P[1]  & H[0]);
+    assign H[2]  = G[2]  | (P[2]  & H[1]);
+    assign H[3]  = G[3]  | (P[3]  & H[2]);
+    assign H[4]  = G[4]  | (P[4]  & H[3]);
+    assign H[5]  = G[5]  | (P[5]  & H[4]);
+    assign H[6]  = G[6]  | (P[6]  & H[5]);
+    assign H[7]  = G[7]  | (P[7]  & H[6]);
+    assign H[8]  = G[8]  | (P[8]  & H[7]);
+    assign H[9]  = G[9]  | (P[9]  & H[8]);
+    assign H[10] = G[10] | (P[10] & H[9]);
+    assign H[11] = G[11] | (P[11] & H[10]);
+    assign H[12] = G[12] | (P[12] & H[11]);
+    assign H[13] = G[13] | (P[13] & H[12]);
+    assign H[14] = G[14] | (P[14] & H[13]);
+    assign H[15] = G[15] | (P[15] & H[14]);
+
+    // Compute the internal sum bits.
+    // Each sum bit is given by: Sum[i] = P[i] XOR (carry into bit i)
+    // where for bit 0 the carry is Cin, and for bit i (i>0) it is H[i-1].
+    wire [15:0] computed_sum;
+    assign computed_sum[0]  = P[0]  ^ Cin;
+    assign computed_sum[1]  = P[1]  ^ H[0];
+    assign computed_sum[2]  = P[2]  ^ H[1];
+    assign computed_sum[3]  = P[3]  ^ H[2];
+    assign computed_sum[4]  = P[4]  ^ H[3];
+    assign computed_sum[5]  = P[5]  ^ H[4];
+    assign computed_sum[6]  = P[6]  ^ H[5];
+    assign computed_sum[7]  = P[7]  ^ H[6];
+    assign computed_sum[8]  = P[8]  ^ H[7];
+    assign computed_sum[9]  = P[9]  ^ H[8];
+    assign computed_sum[10] = P[10] ^ H[9];
+    assign computed_sum[11] = P[11] ^ H[10];
+    assign computed_sum[12] = P[12] ^ H[11];
+    assign computed_sum[13] = P[13] ^ H[12];
+    assign computed_sum[14] = P[14] ^ H[13];
+    assign computed_sum[15] = P[15] ^ H[14];
+
+    // The final Ling carry H[15] becomes the adder's carry-out.
+    wire computed_carry;
+    assign computed_carry = H[15];
+
+    // Final output registers
+    reg [15:0] out_sum;
+    reg        out_carry;
+
+    // Use an always block with if-else to drive the outputs based on enable.
+    always @(*) begin
+        if (enable) begin
+            out_sum  = computed_sum;
+            out_carry = computed_carry;
+        end
+        else begin
+            out_sum  = 16'd0;
+            out_carry = 1'b0;
+        end
+    end
+
+    // Connect the final outputs.
+    assign Sum      = out_sum;
+    assign CarryOut = out_carry;
+
+endmodule

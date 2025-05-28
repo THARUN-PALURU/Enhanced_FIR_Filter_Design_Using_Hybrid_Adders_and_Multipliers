@@ -1,0 +1,274 @@
+module mul_h16_pipelined(
+    input         clk,    // System clock
+    input         reset,  // Synchronous active-high reset
+    input         en,     // Enable signal (active high)
+    input  [15:0] A,      // 16-bit multiplicand
+    input  [15:0] B,      // 16-bit multiplier
+    output reg [31:0] pro // 32-bit product output
+);
+
+    //======================================================================
+    // Pipeline Stage 0: Partial Product Generation (Method 2)
+    //======================================================================
+    // Generate 16 partial products WITHOUT shifting.
+    // Each PP is generated as: {16'b0, (A & {16{B[i]}})}
+    reg [15:0] PP0,  PP1,  PP2,  PP3,  PP4,  PP5,  PP6,  PP7,
+               PP8,  PP9,  PP10, PP11, PP12, PP13, PP14, PP15;
+               
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            PP0  <= 16'b0; PP1  <= 16'b0; PP2  <= 16'b0; PP3  <= 16'b0;
+            PP4  <= 16'b0; PP5  <= 16'b0; PP6  <= 16'b0; PP7  <= 16'b0;
+            PP8  <= 16'b0; PP9  <= 16'b0; PP10 <= 16'b0; PP11 <= 16'b0;
+            PP12 <= 16'b0; PP13 <= 16'b0; PP14 <= 16'b0; PP15 <= 16'b0;
+        end else if (en) begin
+            PP0  <= {16'b0, (A & {16{B[0]}})};   // No shift here
+            PP1  <= {16'b0, (A & {16{B[1]}})};   // No shift here
+            PP2  <= {16'b0, (A & {16{B[2]}})};
+            PP3  <= {16'b0, (A & {16{B[3]}})};
+            PP4  <= {16'b0, (A & {16{B[4]}})};
+            PP5  <= {16'b0, (A & {16{B[5]}})};
+            PP6  <= {16'b0, (A & {16{B[6]}})};
+            PP7  <= {16'b0, (A & {16{B[7]}})};
+            PP8  <= {16'b0, (A & {16{B[8]}})};
+            PP9  <= {16'b0, (A & {16{B[9]}})};
+            PP10 <= {16'b0, (A & {16{B[10]}})};
+            PP11 <= {16'b0, (A & {16{B[11]}})};
+            PP12 <= {16'b0, (A & {16{B[12]}})};
+            PP13 <= {16'b0, (A & {16{B[13]}})};
+            PP14 <= {16'b0, (A & {16{B[14]}})};
+            PP15 <= {16'b0, (A & {16{B[15]}})};
+        end else begin
+            PP0  <= 16'b0; PP1  <= 16'b0; PP2  <= 16'b0; PP3  <= 16'b0;
+            PP4  <= 16'b0; PP5  <= 16'b0; PP6  <= 16'b0; PP7  <= 16'b0;
+            PP8  <= 16'b0; PP9  <= 16'b0; PP10 <= 16'b0; PP11 <= 16'b0;
+            PP12 <= 16'b0; PP13 <= 16'b0; PP14 <= 16'b0; PP15 <= 16'b0;
+        end
+    end
+
+    //======================================================================
+    // Pipeline Stage 1: First Level Adders (8 adders)
+    //======================================================================
+    // In this stage, we perform the required shifting by concatenating zeros.
+    // For example, PP1 is shifted by 1 using {PP1, 1'b0}.
+    wire [31:0] s0, s1, s2, s3, s4, s5, s6, s7;
+    wire [14:0] C; // Intermediate carry signals
+    
+    hyd_adr32 add0(
+        .a(PP0),
+        .b({PP1, 1'b0}), // PP1 shifted left by 1
+        .cin(1'b0),
+        .enable(en),
+        .Sum(s0),
+        .Cout(C[0])
+    );
+    
+    hyd_adr32 add1(
+        .a({PP2, 2'b0}), // PP2 shifted left by 2
+        .b({PP3, 3'b0}), // PP3 shifted left by 3
+        .cin(1'b0),
+        .enable(en),
+        .Sum(s1),
+        .Cout(C[1])
+    );
+    
+    hyd_adr32 add2(
+        .a({PP4, 4'b0}), // PP4 shifted left by 4
+        .b({PP5, 5'b0}), // PP5 shifted left by 5
+        .cin(1'b0),
+        .enable(en),
+        .Sum(s2),
+        .Cout(C[2])
+    );
+    
+    hyd_adr32 add3(
+        .a({PP6, 6'b0}), // PP6 shifted left by 6
+        .b({PP7, 7'b0}), // PP7 shifted left by 7
+        .cin(1'b0),
+        .enable(en),
+        .Sum(s3),
+        .Cout(C[3])
+    );
+    
+    hyd_adr32 add4(
+        .a({PP8, 8'b0}), // PP8 shifted left by 8
+        .b({PP9, 9'b0}), // PP9 shifted left by 9
+        .cin(1'b0),
+        .enable(en),
+        .Sum(s4),
+        .Cout(C[4])
+    );
+    
+    hyd_adr32 add5(
+        .a({PP10, 10'b0}), // PP10 shifted left by 10
+        .b({PP11, 11'b0}), // PP11 shifted left by 11
+        .cin(1'b0),
+        .enable(en),
+        .Sum(s5),
+        .Cout(C[5])
+    );
+    
+    hyd_adr32 add6(
+        .a({PP12, 12'b0}), // PP12 shifted left by 12
+        .b({PP13, 13'b0}), // PP13 shifted left by 13
+        .cin(1'b0),
+        .enable(en),
+        .Sum(s6),
+        .Cout(C[6])
+    );
+    
+    hyd_adr32 add7(
+        .a({PP14, 14'b0}), // PP14 shifted left by 14
+        .b({PP15, 15'b0}), // PP15 shifted left by 15
+        .cin(1'b0),
+        .enable(en),
+        .Sum(s7),
+        .Cout(C[7])
+    );
+    
+    // Register the outputs of Stage 1
+    reg [31:0] s0_reg, s1_reg, s2_reg, s3_reg, s4_reg, s5_reg, s6_reg, s7_reg;
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            s0_reg <= 32'b0; s1_reg <= 32'b0; s2_reg <= 32'b0; s3_reg <= 32'b0;
+            s4_reg <= 32'b0; s5_reg <= 32'b0; s6_reg <= 32'b0; s7_reg <= 32'b0;
+        end else if (en) begin
+            s0_reg <= s0;
+            s1_reg <= s1;
+            s2_reg <= s2;
+            s3_reg <= s3;
+            s4_reg <= s4;
+            s5_reg <= s5;
+            s6_reg <= s6;
+            s7_reg <= s7;
+        end else begin
+            s0_reg <= 32'b0; s1_reg <= 32'b0; s2_reg <= 32'b0; s3_reg <= 32'b0;
+            s4_reg <= 32'b0; s5_reg <= 32'b0; s6_reg <= 32'b0; s7_reg <= 32'b0;
+        end
+    end
+
+    //======================================================================
+    // Pipeline Stage 2: Second Level Adders (4 adders)
+    //======================================================================
+    wire [31:0] s8, s9, s10, s11;
+    hyd_adr32 add8(
+        .A(s0_reg),
+        .B(s1_reg),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(s8),
+        .Cout(C[8])
+    );
+    hyd_adr32 add9(
+        .A(s2_reg),
+        .B(s3_reg),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(s9),
+        .Cout(C[9])
+    );
+    hyd_adr32 add10(
+        .A(s4_reg),
+        .B(s5_reg),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(s10),
+        .Cout(C[10])
+    );
+    hyd_adr32 add11(
+        .A(s6_reg),
+        .B(s7_reg),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(s11),
+        .Cout(C[11])
+    );
+    
+    // Register outputs of Stage 2
+    reg [31:0] s8_reg, s9_reg, s10_reg, s11_reg;
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            s8_reg  <= 32'b0; s9_reg  <= 32'b0;
+            s10_reg <= 32'b0; s11_reg <= 32'b0;
+        end else if (en) begin
+            s8_reg  <= s8;
+            s9_reg  <= s9;
+            s10_reg <= s10;
+            s11_reg <= s11;
+        end else begin
+            s8_reg  <= 32'b0; s9_reg  <= 32'b0;
+            s10_reg <= 32'b0; s11_reg <= 32'b0;
+        end
+    end
+
+    //======================================================================
+    // Pipeline Stage 3: Third Level Adders (2 adders)
+    //======================================================================
+    wire [31:0] s12, s13;
+    hyd_adr32 add12(
+        .A(s8_reg),
+        .B(s9_reg),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(s12),
+        .Cout(C[12])
+    );
+    hyd_adr32 add13(
+        .A(s10_reg),
+        .B(s11_reg),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(s13),
+        .Cout(C[13])
+    );
+    
+    // Register outputs of Stage 3
+    reg [31:0] s12_reg, s13_reg;
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            s12_reg <= 32'b0; s13_reg <= 32'b0;
+        end else if (en) begin
+            s12_reg <= s12;
+            s13_reg <= s13;
+        end else begin
+            s12_reg <= 32'b0; s13_reg <= 32'b0;
+        end
+    end
+
+    //======================================================================
+    // Pipeline Stage 4: Final Adder (1 adder)
+    //======================================================================
+    wire [31:0] s14;
+    hyd_adr32 add14(
+        .A(s12_reg),
+        .B(s13_reg),
+        .Cin(1'b0),
+        .enable(en),
+        .Sum(s14),
+        .Cout(C[14])
+    );
+    
+    // Register final result
+    reg [31:0] s14_reg;
+    always @(posedge clk or posedge reset) begin
+        if (reset)
+            s14_reg <= 32'b0;
+        else if (en)
+            s14_reg <= s14;
+        else
+            s14_reg <= 32'b0;
+    end
+
+    //======================================================================
+    // Final Output Assignment
+    //======================================================================
+    always @(posedge clk or posedge reset) begin
+        if (reset)
+            pro <= 32'b0;
+        else if (en)
+            pro <= s14_reg;
+        else
+            pro <= 32'b0;
+    end
+
+endmodule

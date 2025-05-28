@@ -1,0 +1,202 @@
+
+module FIR_Filter_16tap#(parameter N = 16)(
+    input clk, reset, enable,
+    input [N-1:0] data_in,
+    output reg [31:0] data_out   // Final result is 32 bits.
+);
+
+  //-------------------------------------------------------------------------
+  // Coefficient definitions for an ECG low-pass optimized filter.
+  // These symmetric coefficients yield a linear-phase response.
+  //-------------------------------------------------------------------------
+  wire [15:0] b0  = 16'h0003; 
+  wire [15:0] b1  = 16'h0007; 
+  wire [15:0] b2  = 16'h000C; 
+  wire [15:0] b3  = 16'h0012;
+  wire [15:0] b4  = 16'h0019;
+  wire [15:0] b5  = 16'h0020;
+  wire [15:0] b6  = 16'h0026;
+  wire [15:0] b7  = 16'h002A;
+  wire [15:0] b8  = 16'h002A;
+  wire [15:0] b9  = 16'h0026;
+  wire [15:0] b10 = 16'h0020;
+  wire [15:0] b11 = 16'h0019;
+  wire [15:0] b12 = 16'h0012;
+  wire [15:0] b13 = 16'h000C;
+  wire [15:0] b14 = 16'h0007;
+  wire [15:0] b15 = 16'h0003;
+
+  //-------------------------------------------------------------------------
+  // Delay Elements: Instantiate DFFs for taps x[n-1] to x[n-15].
+  // These store the past input samples.
+  //-------------------------------------------------------------------------
+  wire [N-1:0] x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
+
+  DFF DFF0(clk, reset, data_in, x1);   // x[n-1]
+  DFF DFF1(clk, reset, x1, x2);         // x[n-2]
+  DFF DFF2(clk, reset, x2, x3);         // x[n-3]
+  DFF DFF3(clk, reset, x3, x4);         // x[n-4]
+  DFF DFF4(clk, reset, x4, x5);         // x[n-5]
+  DFF DFF5(clk, reset, x5, x6);         // x[n-6]
+  DFF DFF6(clk, reset, x6, x7);         // x[n-7]
+  DFF DFF7(clk, reset, x7, x8);         // x[n-8]
+  DFF DFF8(clk, reset, x8, x9);         // x[n-9]
+  DFF DFF9(clk, reset, x9, x10);        // x[n-10]
+  DFF DFF10(clk, reset, x10, x11);      // x[n-11]
+  DFF DFF11(clk, reset, x11, x12);      // x[n-12]
+  DFF DFF12(clk, reset, x12, x13);      // x[n-13]
+  DFF DFF13(clk, reset, x13, x14);      // x[n-14]
+  DFF DFF14(clk, reset, x14, x15);      // x[n-15]
+
+  //-------------------------------------------------------------------------
+  // Multiplication Stage: Multiply each sample (current or delayed) by its coefficient.
+  // Each hyd_mul16_4chain instance outputs a 32-bit product.
+  //-------------------------------------------------------------------------
+  wire [31:0] Mul0, Mul1, Mul2, Mul3, Mul4, Mul5, Mul6,
+              Mul7, Mul8, Mul9, Mul10, Mul11, Mul12, Mul13, Mul14, Mul15;
+
+  hyd_mul16_4chain m0(
+    .A(data_in),
+    .B(b0),
+    .en(enable),
+    .Product(Mul0)
+  );
+  hyd_mul16_4chain m1(
+    .A(x1),
+    .B(b1),
+    .en(enable),
+    .Product(Mul1)
+  );
+  hyd_mul16_4chain m2(
+    .A(x2),
+    .B(b2),
+    .en(enable),
+    .Product(Mul2)
+  );
+  hyd_mul16_4chain m3(
+    .A(x3),
+    .B(b3),
+    .en(enable),
+    .Product(Mul3)
+  );
+  hyd_mul16_4chain m4(
+    .A(x4),
+    .B(b4),
+    .en(enable),
+    .Product(Mul4)
+  );
+  hyd_mul16_4chain m5(
+    .A(x5),
+    .B(b5),
+    .en(enable),
+    .Product(Mul5)
+  );
+  hyd_mul16_4chain m6(
+    .A(x6),
+    .B(b6),
+    .en(enable),
+    .Product(Mul6)
+  );
+  hyd_mul16_4chain m7(
+    .A(x7),
+    .B(b7),
+    .en(enable),
+    .Product(Mul7)
+  );
+  hyd_mul16_4chain m8(
+    .A(x8),
+    .B(b8),
+    .en(enable),
+    .Product(Mul8)
+  );
+  hyd_mul16_4chain m9(
+    .A(x9),
+    .B(b9),
+    .en(enable),
+    .Product(Mul9)
+  );
+  hyd_mul16_4chain m10(
+    .A(x10),
+    .B(b10),
+    .en(enable),
+    .Product(Mul10)
+  );
+  hyd_mul16_4chain m11(
+    .A(x11),
+    .B(b11),
+    .en(enable),
+    .Product(Mul11)
+  );
+  hyd_mul16_4chain m12(
+    .A(x12),
+    .B(b12),
+    .en(enable),
+    .Product(Mul12)
+  );
+  hyd_mul16_4chain m13(
+    .A(x13),
+    .B(b13),
+    .en(enable),
+    .Product(Mul13)
+  );
+  hyd_mul16_4chain m14(
+    .A(x14),
+    .B(b14),
+    .en(enable),
+    .Product(Mul14)
+  );
+  hyd_mul16_4chain m15(
+    .A(x15),
+    .B(b15),
+    .en(enable),
+    .Product(Mul15)
+  );
+
+  //-------------------------------------------------------------------------
+  // Parallel Adder Tree: Sum the 16 multiplier outputs in a balanced tree.
+  // Level 1: 8 adders (pairwise addition).
+  // Level 2: 4 adders.
+  // Level 3: 2 adders.
+  // Level 4: 1 adder (final sum).
+  // Each hyd_adr32 instance is assumed to be combinational.
+  //-------------------------------------------------------------------------
+  // Level 1: 8 adders.
+  wire [31:0] level1[0:7];
+  wire        l1_cout[0:7];  // Not used further, but instantiating for completeness.
+  hyd_adr32 addL1_0 (.A(Mul0), .B(Mul1), .Cin(1'b0), .enable(enable), .Sum(level1[0]), .Cout(l1_cout[0]));
+  hyd_adr32 addL1_1 (.A(Mul2), .B(Mul3), .Cin(1'b0), .enable(enable), .Sum(level1[1]), .Cout(l1_cout[1]));
+  hyd_adr32 addL1_2 (.A(Mul4), .B(Mul5), .Cin(1'b0), .enable(enable), .Sum(level1[2]), .Cout(l1_cout[2]));
+  hyd_adr32 addL1_3 (.A(Mul6), .B(Mul7), .Cin(1'b0), .enable(enable), .Sum(level1[3]), .Cout(l1_cout[3]));
+  hyd_adr32 addL1_4 (.A(Mul8), .B(Mul9), .Cin(1'b0), .enable(enable), .Sum(level1[4]), .Cout(l1_cout[4]));
+  hyd_adr32 addL1_5 (.A(Mul10), .B(Mul11), .Cin(1'b0), .enable(enable), .Sum(level1[5]), .Cout(l1_cout[5]));
+  hyd_adr32 addL1_6 (.A(Mul12), .B(Mul13), .Cin(1'b0), .enable(enable), .Sum(level1[6]), .Cout(l1_cout[6]));
+  hyd_adr32 addL1_7 (.A(Mul14), .B(Mul15), .Cin(1'b0), .enable(enable), .Sum(level1[7]), .Cout(l1_cout[7]));
+
+  // Level 2: 4 adders.
+  wire [31:0] level2[0:3];
+  wire        l2_cout[0:3];
+  hyd_adr32 addL2_0 (.A(level1[0]), .B(level1[1]), .Cin(1'b0), .enable(enable), .Sum(level2[0]), .Cout(l2_cout[0]));
+  hyd_adr32 addL2_1 (.A(level1[2]), .B(level1[3]), .Cin(1'b0), .enable(enable), .Sum(level2[1]), .Cout(l2_cout[1]));
+  hyd_adr32 addL2_2 (.A(level1[4]), .B(level1[5]), .Cin(1'b0), .enable(enable), .Sum(level2[2]), .Cout(l2_cout[2]));
+  hyd_adr32 addL2_3 (.A(level1[6]), .B(level1[7]), .Cin(1'b0), .enable(enable), .Sum(level2[3]), .Cout(l2_cout[3]));
+
+  // Level 3: 2 adders.
+  wire [31:0] level3[0:1];
+  wire        l3_cout[0:1];
+  hyd_adr32 addL3_0 (.A(level2[0]), .B(level2[1]), .Cin(1'b0), .enable(enable), .Sum(level3[0]), .Cout(l3_cout[0]));
+  hyd_adr32 addL3_1 (.A(level2[2]), .B(level2[3]), .Cin(1'b0), .enable(enable), .Sum(level3[1]), .Cout(l3_cout[1]));
+
+  // Level 4: Final adder.
+  wire [31:0] final_sum;
+  wire        final_cout;
+  hyd_adr32 addL4 (.A(level3[0]), .B(level3[1]), .Cin(1'b0), .enable(enable), .Sum(final_sum), .Cout(final_cout));
+  
+  // Register the final sum on the rising edge.
+  always @(posedge clk) begin
+      if (reset || !enable)
+          data_out <= 32'd0;
+      else
+          data_out <= final_sum;
+  end
+
+endmodule

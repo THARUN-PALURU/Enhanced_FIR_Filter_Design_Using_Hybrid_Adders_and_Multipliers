@@ -1,0 +1,217 @@
+`timescale 1ns / 1ps
+
+module tb_hyd_adr32_sig_clk;
+
+    // Clock and signed input signals
+    reg         clk;
+    reg signed [31:0] A;
+    reg signed [31:0] B;
+    reg         Cin;
+    reg         enable;
+    
+    // DUT outputs (registered)
+    wire signed [31:0] Sum;
+    wire        Cout;
+    
+    // Instantiate the DUT
+    hyd_adr32_sig_clk uut (
+        .A(A),
+        .B(B),
+        .Cin(Cin),
+        .enable(enable),
+        .clk(clk),
+        .Sum(Sum),
+        .Cout(Cout)
+    );
+    
+    // Clock generation: 10 ns period (toggle every 5 ns)
+    initial begin
+        clk = 0;
+        forever #5 clk = ~clk;
+    end
+
+    // Initialize signals and wait for a reset period.
+    initial begin
+        A = 32'sd0;
+        B = 32'sd0;
+        Cin = 0;
+        enable = 1'b0;
+        // Wait for two clock cycles to allow DUT registers to settle.
+        @(posedge clk);
+        @(posedge clk);
+    end
+
+    // Function to compute expected result.
+    // The lower 16 bits of A and B are treated as unsigned,
+    // while the upper 16 bits remain signed.
+    function [32:0] compute_expected;
+      input signed [31:0] A_in;
+      input signed [31:0] B_in;
+      input Cin_in;
+      reg [15:0] A_low, B_low;
+      reg [16:0] lower_sum;
+      reg [15:0] A_high, B_high;
+      reg signed [15:0] A_high_s, B_high_s;
+      reg signed [16:0] upper_sum;
+      reg expected_cout;
+      reg [31:0] expected_sum;
+      begin
+          // Extract lower halves as unsigned
+          A_low = A_in[15:0];
+          B_low = B_in[15:0];
+          lower_sum = A_low + B_low + Cin_in;  // 17-bit result
+
+          // Extract upper halves as signed (preserving bit pattern)
+          A_high = A_in[31:16];
+          B_high = B_in[31:16];
+          A_high_s = A_high;
+          B_high_s = B_high;
+          upper_sum = A_high_s + B_high_s + lower_sum[16]; // add lower carry
+          expected_cout = upper_sum[16];
+          expected_sum = {upper_sum[15:0], lower_sum[15:0]};
+          compute_expected = {expected_cout, expected_sum};
+      end
+    endfunction
+
+    // Task to check DUT result versus expected value.
+    task check_result;
+      input integer test_num;
+      input signed [31:0] A_val, B_val;
+      input Cin_val;
+      input enable_val;
+      input [32:0] result;  // {Cout, Sum} from DUT
+      reg [32:0] expected;
+      begin
+          expected = compute_expected(A_val, B_val, Cin_val);
+          if (!enable_val)
+              expected = {1'b0, 32'd0};  // When disabled, expected is 0.
+          $display("Test Case %0d: A = %h, B = %h, Cin = %b, Enable = %b", 
+                   test_num, A_val, B_val, Cin_val, enable_val);
+          $display("  Result:   Sum = %h, Cout = %b", result[31:0], result[32]);
+          $display("  Expected: Sum = %h, Cout = %b", expected[31:0], expected[32]);
+          if (result === expected)
+              $display("  Status: Passed\n");
+          else
+              $display("  Status: Failed\n");
+      end
+    endtask
+
+    // Apply test vectors after the reset period.
+    initial begin
+        // Allow registers to settle.
+        #20;
+        
+        // Test Case 0:
+        A = 32'sd0;    B = 32'sd0;    Cin = 1; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(0, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 1:
+        A = 32'sd1;    B = 32'sh00010000; Cin = 1; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(1, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 2:
+        A = 32'sd1;    B = 32'sd1;    Cin = 1; enable = 1'b0;
+        #10; @(posedge clk); #1;
+        check_result(2, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 3:
+        A = 32'sh0000FFFF; B = 32'sd1; Cin = 0; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(3, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 4:
+        A = 32'sh7FFFFFFF; B = 32'sh07FFF800; Cin = 0; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(4, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 5:
+        A = 32'sh7FFF8000; B = 32'sh0FFFF000; Cin = 1; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(5, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 6:
+        A = 32'shFFFFABCD; B = 32'shEF01FFFF; Cin = 1; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(6, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 7:
+        A = 32'sh0000FFFF; B = 32'shFFFF0000; Cin = 0; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(7, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 8:
+        A = 32'shFFFFABCD; B = 32'shABCDFFFF; Cin = 1; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(8, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 9:
+        A = 32'shAAAAFFFD; B = 32'shFFAB5555; Cin = 0; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(9, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 10:
+        A = 32'sh67890000; B = 32'sh0000AFDC; Cin = 1; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(10, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 11:
+        A = 32'sh12347FFF; B = 32'sh00007FFF; Cin = 0; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(11, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 12:
+        A = 32'shFFFFFFFF; B = 32'sh81239876; Cin = 0; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(12, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 13:
+        A = 32'sh80005478; B = 32'shEEEE7FFF; Cin = 0; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(13, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 14:
+        A = 32'sh0000CDEF; B = 32'sh00001234; Cin = 1; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(14, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 15:
+        A = 32'sh0000FFFF; B = 32'sh00000001; Cin = 1; enable = 1'b0;
+        #10; @(posedge clk); #1;
+        check_result(15, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 16:
+        A = 32'shFFFFFFFF; B = 32'sh00010001; Cin = 1; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(16, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 17:
+        A = 32'shFFFFFFFF; B = 32'shFFFFFFFF; Cin = 0; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(17, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 18:
+        A = 32'shFFFFFFFF; B = 32'shFFFFFFFF; Cin = 1; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(18, A, B, Cin, enable, {Cout, Sum});
+        
+        // Test Case 19
+        A = 32'shFFFFFFFF; B = 32'shFFFFFFFF; Cin = 1; enable = 1'b0;
+        #10; @(posedge clk); #1;
+        check_result(19, A, B, Cin, enable, {Cout, Sum});
+        
+        
+         // Test Case 20
+        A = 32'shFFFFFFFF; B = 32'shEEEEFFFF; Cin = 1; enable = 1'b1;
+        #10; @(posedge clk); #1;
+        check_result(20, A, B, Cin, enable, {Cout, Sum});
+        
+        $finish;
+    end
+
+endmodule
+
+
+
+

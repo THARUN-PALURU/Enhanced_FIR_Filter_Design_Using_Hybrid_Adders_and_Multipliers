@@ -1,0 +1,61 @@
+
+
+module ling_adder_8bit_en (
+    input  [7:0] A,       // Input operand A
+    input  [7:0] B,       // Input operand B
+    input         Cin,     // Carry-in input
+    input         enable,  // Active-high enable signal
+    output [7:0] Sum,     // Sum output
+    output        CarryOut // Final carry output
+);
+
+    // Internal wires for propagate, generate, and Ling carry signals.
+    wire [7:0] P;  // Propagate signals: P = A XOR B.
+    wire [7:0] G;  // Generate signals:  G = A AND B.
+    wire [7:0] H;  // Ling carry signals.
+
+    assign P = A ^ B;
+    assign G = A & B;
+
+    // Compute Ling carry signals explicitly.
+    assign H[0] = G[0] | (P[0] & Cin);
+    assign H[1] = G[1] | (P[1] & H[0]);
+    assign H[2] = G[2] | (P[2] & H[1]);
+    assign H[3] = G[3] | (P[3] & H[2]);
+    assign H[4] = G[4] | (P[4] & H[3]);
+    assign H[5] = G[5] | (P[5] & H[4]);
+    assign H[6] = G[6] | (P[6] & H[5]);
+    assign H[7] = G[7] | (P[7] & H[6]);
+
+    // Compute Sum bits.
+    // Sum[0] = P[0] XOR Cin; for i>=1, Sum[i] = P[i] XOR H[i-1].
+    wire [7:0] computed_sum;
+    assign computed_sum[0] = P[0] ^ Cin;
+    assign computed_sum[1] = P[1] ^ H[0];
+    assign computed_sum[2] = P[2] ^ H[1];
+    assign computed_sum[3] = P[3] ^ H[2];
+    assign computed_sum[4] = P[4] ^ H[3];
+    assign computed_sum[5] = P[5] ^ H[4];
+    assign computed_sum[6] = P[6] ^ H[5];
+    assign computed_sum[7] = P[7] ^ H[6];
+
+    // Final carry-out is H[7].
+    wire computed_carry;
+    assign computed_carry = H[7];
+
+    reg [7:0] out_sum;
+    reg       out_carry;
+    always @(*) begin
+        if (enable) begin
+            out_sum  = computed_sum;
+            out_carry = computed_carry;
+        end else begin
+            out_sum  = 8'd0;
+            out_carry = 1'b0;
+        end
+    end
+
+    assign Sum      = out_sum;
+    assign CarryOut = out_carry;
+
+endmodule

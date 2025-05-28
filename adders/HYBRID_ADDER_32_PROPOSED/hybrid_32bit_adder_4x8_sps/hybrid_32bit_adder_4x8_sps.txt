@@ -1,0 +1,121 @@
+
+module hybrid_32bit_adder_4x8_sps (
+    input  [31:0] A,         // 32-bit operand A
+    input  [31:0] B,         // 32-bit operand B
+    input         Cin,       // Overall carry-in
+    input         enable,    // Global enable signal
+    output [31:0] Sum,       // 32-bit sum output
+    output        Cout       // Overall carry-out
+);
+
+    //-------------------------------------------------------------------------
+    // Partition the 32-bit operands into four 8-bit slices.
+    //-------------------------------------------------------------------------
+    wire [7:0] A0, A1, A2, A3;
+    wire [7:0] B0, B1, B2, B3;
+    assign A0 = A[7:0];
+    assign A1 = A[15:8];
+    assign A2 = A[23:16];
+    assign A3 = A[31:24];
+    assign B0 = B[7:0];
+    assign B1 = B[15:8];
+    assign B2 = B[23:16];
+    assign B3 = B[31:24];
+
+    //-------------------------------------------------------------------------
+    // Local Enable Generation (Spurious-Power Suppression):
+    // Each block is enabled only if the global enable is high and either
+    // operand bits or the incoming carry are nonzero.
+    //-------------------------------------------------------------------------
+    wire local_en0, local_en1, local_en2, local_en3;
+    
+    // Block 0: For bits [7:0]
+    assign local_en0 = enable && ((|A0) || (|B0) || Cin);
+
+    // Block 1: For bits [15:8]. We want to force the block to be active if
+    // either its operands are nonzero or if the previous block produced a carry.
+    // (Cout0 will be computed by block 0.)
+    // For now, we define a preliminary local enable based on the operands:
+    wire temp_en1;
+    assign temp_en1 = (|A1) || (|B1);
+    // Later we OR in the carry from block 0 (Cout0) to ensure the block activates when needed.
+    
+    // Block 2: For bits [23:16]:
+    wire temp_en2;
+    assign temp_en2 = (|A2) || (|B2);
+    
+    // Block 3: For bits [31:24]:
+    wire temp_en3;
+    assign temp_en3 = (|A3) || (|B3);
+
+    //-------------------------------------------------------------------------
+    // Instantiate the 8-bit adder blocks.
+    // We use four different 8-bit adders for diversity:
+    //   Block 0: Ling adder
+    //   Block 1: Brent-Kung adder
+    //   Block 2: Full Kogge-Stone adder
+    //   Block 3: Sparse Kogge-Stone adder
+    // Each block receives its local enable signal.
+    // For blocks 1-3, we will update the local enable to include the previous block's carry.
+    //-------------------------------------------------------------------------
+    
+    // Block 0: Ling 8-bit Adder.
+    wire [7:0] Sum0;
+    wire       Cout0;
+    ling_adder_8bit_en adder0 (
+        .A(A0),
+        .B(B0),
+        .Cin(Cin),
+        .enable(local_en0),
+        .Sum(Sum0),
+        .CarryOut(Cout0)
+    );
+    
+    // Block 1: Brent-Kung 8-bit Adder.
+    // Update local enable for block 1 to include Cout0.
+    assign local_en1 = enable && (temp_en1 || Cout0);
+    wire [7:0] Sum1;
+    wire       Cout1;
+    brent_kung_adder_8_en adder1 (
+        .a(A1),
+        .b(B1),
+        .cin(Cout0),
+        .enable(local_en1),
+        .sum(Sum1),
+        .cout(Cout1)
+    );
+    
+    // Block 2: Full Kogge-Stone 8-bit Adder.
+    assign local_en2 = enable && (temp_en2 || Cout1);
+    wire [7:0] Sum2;
+    wire       Cout2;
+    kogge_stone_8bit_en adder2 (
+        .A(A2),
+        .B(B2),
+        .Cin(Cout1),
+        .enable(local_en2),
+        .Sum(Sum2),
+        .Cout(Cout2)
+    );
+    
+    // Block 3: Sparse Kogge-Stone 8-bit Adder.
+    assign local_en3 = enable && (temp_en3 || Cout2);
+    wire [7:0] Sum3;
+    wire       Cout3;
+    sparse_kogge_stone_adder_8_en adder3 (
+        .a(A3),
+        .b(B3),
+        .cin(Cout2),
+        .enable(local_en3),
+        .sum(Sum3),
+        .cout(Cout3)
+    );
+    
+    //-------------------------------------------------------------------------
+    // Combine the four 8-bit partial sums into the final 32-bit sum.
+    // The overall carry-out is taken from the final block.
+    //-------------------------------------------------------------------------
+    assign Sum  = {Sum3, Sum2, Sum1, Sum0};
+    assign Cout = Cout3;
+
+endmodule

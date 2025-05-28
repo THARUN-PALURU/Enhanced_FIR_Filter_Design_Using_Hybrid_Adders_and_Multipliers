@@ -1,0 +1,206 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Module Name: FIR_Filter_tb
+// Description: Enhanced Testbench for FIR_Filter_16tap with ECG-optimized low-pass 
+//              filter coefficients. This testbench provides multiple stimulus 
+//              sequences. All input changes are synchronized to clock edges.
+//              When enable is low, the DUT forces its output to zero but its delay 
+//              chain continues updating. The expected model is updated to mimic that:
+//              - The ideal convolution sum is computed every cycle.
+//              - On each clock edge, if reset is asserted, the delay chain is cleared.
+//              - Regardless of enable, the delay chain is updated.
+//              - The final expected output is set to zero if enable is low; otherwise,
+//                it is set to the computed convolution sum.
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+module FIR_Filter_tb;
+    parameter N = 16;
+    
+    reg clk, reset, enable;
+    reg [N-1:0] data_in;
+    wire [31:0] data_out;
+    
+    // Instantiate the FIR_Filter DUT.
+    FIR_Filter_16tap #(N) uut (
+        .clk(clk),
+        .reset(reset),
+        .enable(enable),
+        .data_in(data_in),
+        .data_out(data_out)
+    );
+    
+    // Clock generation: period = 10 ns.
+    initial clk = 0;
+    always #5 clk = ~clk;
+    
+    //-----------------------------------------------------------------
+    // FIR Filter Coefficients (unsigned) - Must match DUT.
+    //-----------------------------------------------------------------
+    reg [15:0] h [0:15];
+    initial begin
+        h[0]  = 16'h0003;  h[1]  = 16'h0007;  h[2]  = 16'h000C;  h[3]  = 16'h0012;
+        h[4]  = 16'h0019;  h[5]  = 16'h0020;  h[6]  = 16'h0026;  h[7]  = 16'h002A;
+        h[8]  = 16'h002A;  h[9]  = 16'h0026;  h[10] = 16'h0020;  h[11] = 16'h0019;
+        h[12] = 16'h0012;  h[13] = 16'h000C;  h[14] = 16'h0007;  h[15] = 16'h0003;
+    end
+    
+    //-----------------------------------------------------------------
+    // Expected Output Model (Ideal Convolution):
+    // y[n] = h[0]*x[n] + h[1]*x[n-1] + ... + h[15]*x[n-15]
+    // The delay chain is maintained in "delay_model". Note that:
+    // - The delay chain is updated every clock edge regardless of "enable".
+    // - The computed sum is forced to zero when enable is low.
+    //-----------------------------------------------------------------
+    reg [15:0] delay_model [0:15];
+    reg [31:0] expected_out;
+    reg [31:0] sum;
+    integer i;
+    
+    // Compute the convolution sum every rising edge.
+    // This always block computes the ideal sum from the current and past samples.
+    always @(posedge clk) begin
+        if (reset)
+            expected_out <= 32'd0;
+        else begin
+            sum = data_in * h[0];
+            for (i = 0; i < 15; i = i + 1)
+                sum = sum + (delay_model[i] * h[i+1]);
+            // If enable is low, expected output should be forced to zero.
+            expected_out <= (enable ? sum : 32'd0);
+        end
+    end
+    
+    // Update the delay chain on every rising edge.
+    // Note: The delay chain updates regardless of the enable signal.
+    always @(posedge clk) begin
+        if (reset) begin
+            for (i = 0; i < 16; i = i + 1)
+                delay_model[i] <= 16'd0;
+        end else begin
+            for (i = 15; i > 0; i = i - 1)
+                delay_model[i] <= delay_model[i-1];
+            delay_model[0] <= data_in;
+        end
+    end
+    
+    //-----------------------------------------------------------------
+    // Comparison: After a short delay, compare DUT output with expected output.
+    //-----------------------------------------------------------------
+    always @(clk) begin
+        #3;  // Allow settling time.
+        if (data_out !== expected_out)
+            $display("FAILED: Time=%0t, Expected=%h, Got=%h", $time, expected_out, data_out);
+        else
+            $display("PASSED: Time=%0t, Output=%h", $time, data_out);
+    end
+    
+    //-----------------------------------------------------------------
+    // Stimulus Sequences (all changes occur on clock edges with #10 delays):
+    //-----------------------------------------------------------------
+    initial begin
+        // Initialization.
+        reset = 1;
+        enable = 1;
+        data_in = 16'd0;
+        #20 reset = 0;
+        
+        // ===============================
+        // Test Sequence 1: Step Response Test
+        // Apply a constant step input (1) to fill the pipeline.
+        $display("----- Test Sequence 1: Step Response -----");
+        repeat (20) begin
+            #10 data_in = 16'h0001;
+        end
+        #20;  // Extra settling.
+        
+        // ===============================
+        // Test Sequence 2: Low-Frequency Sinusoid
+        $display("----- Test Sequence 2: Low-Frequency Sinusoid -----");
+        reset = 1; #20 reset = 0;
+        #10 data_in = 16'h0200;
+        #10 data_in = 16'h0400;
+        #10 data_in = 16'h0600;
+        #10 data_in = 16'h0800;  // near peak
+        #10 data_in = 16'h0600;
+        #10 data_in = 16'h0400;
+        #10 data_in = 16'h0200;
+        #10 data_in = 16'h0000;  // trough
+        #10 data_in = 16'h0200;
+        #10 data_in = 16'h0400;
+        #10 data_in = 16'h0600;
+        #10 data_in = 16'h0800;
+        #10 data_in = 16'h0600;
+        #10 data_in = 16'h0400;
+        #10 data_in = 16'h0200;
+        #10 data_in = 16'h0000;
+        #20;  // Extra settling.
+        
+        // ===============================
+        // Test Sequence 3: High-Frequency Noise on DC
+        // Drive a repeating pattern that, if the delay chain cancels,
+        // yields expected = data_in * h[0]. For data_in = 0x1000 and h[0] = 3, ideal = 0x3000.
+        $display("----- Test Sequence 3: High-Frequency Noise on DC -----");
+        repeat (10) begin
+            #10 data_in = 16'h1000;
+            #10 data_in = 16'hF000;
+            #10 data_in = 16'h1000;
+            #10 data_in = 16'hEFFF;
+            #10 data_in = 16'h1000;
+        end
+        // Extra settling: hold 0x1000 for 5 clock cycles.
+        repeat (5) begin
+            #10 data_in = 16'h1000;
+        end
+        #20;
+        
+        // ===============================
+        // Test Sequence 4: Mixed Signal (Low + High Frequency)
+        // Slowly varying baseline with superimposed high-frequency bursts.
+        $display("----- Test Sequence 4: Mixed Signal -----");
+        reset = 1; #20 reset = 0;
+        // Slowly ramp up the baseline.
+        repeat (8) begin
+            #10 data_in = data_in + 16'h0100;
+        end
+        // Superimpose bursts of high-frequency noise.
+        repeat (4) begin
+            #10 data_in = 16'h0800;
+            #10 data_in = 16'hF800;
+            #10 data_in = 16'h0800;
+        end
+        // Extra settling cycles.
+        repeat (5) begin
+            #10 data_in = data_in;
+        end
+        #20;
+        
+        // ===============================
+        // Test Sequence 5: Enable Toggle Test
+        // Feed values, then disable (forcing output to 0), then re-enable.
+        $display("----- Test Sequence 5: Enable Toggle -----");
+        reset = 1; #20 reset = 0;
+        repeat (5) begin
+            #10 data_in = 16'h1234;
+        end
+        #10 enable = 0;  // Disable filter; output should be 0.
+        // Note: The delay chain still updates even when enable is 0.
+        repeat (3) begin
+            #10 data_in = 16'h5678;
+        end
+        #10 enable = 1;  // Re-enable filter.
+        repeat (5) begin
+            #10 data_in = 16'h9ABC;
+        end
+        
+        #20;
+        $finish;
+    end
+    
+    // Optional: Monitor key signals.
+//    initial begin
+//        $monitor("Time=%0t | clk=%b | reset=%b | enable=%b | data_in=%h | data_out=%h | expected=%h",
+//                 $time, clk, reset, enable, data_in, data_out, expected_out);
+//    end
+
+endmodule

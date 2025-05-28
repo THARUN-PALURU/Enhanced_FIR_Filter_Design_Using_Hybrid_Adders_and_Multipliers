@@ -1,0 +1,166 @@
+
+
+//----------------------------
+// 8-Bit Vedic Multiplier Module
+//----------------------------
+module vedic_8bit(
+    input  [7:0] a,      // 8-bit multiplicand
+    input  [7:0] b,      // 8-bit multiplier
+    output [15:0] c      // 16-bit product
+);
+
+    // Split a and b into 4-bit halves
+    wire [3:0] a_low, a_high;
+    wire [3:0] b_low, b_high;
+    assign a_low  = a[3:0];
+    assign a_high = a[7:4];
+    assign b_low  = b[3:0];
+    assign b_high = b[7:4];
+    
+    // Partial products using 4-bit Vedic multipliers
+    wire [7:0] p0, p1, p2, p3;
+    vedic_4bit m0 (
+        .a(a_low),
+        .b(b_low),
+        .c(p0)
+    );
+    vedic_4bit m1 (
+        .a(a_high),
+        .b(b_low),
+        .c(p1)
+    );
+    vedic_4bit m2 (
+        .a(a_low),
+        .b(b_high),
+        .c(p2)
+    );
+    vedic_4bit m3 (
+        .a(a_high),
+        .b(b_high),
+        .c(p3)
+    );
+    
+    // Combine the partial products:
+    // Product formula for Vedic 8-bit multiplication:
+    //    c = p0 + (p1 << 4) + (p2 << 4) + (p3 << 8)
+    // First, extend/shift the partial products to 16 bits.
+    wire [15:0] pp0, pp1, pp2, pp3;
+    assign pp0 = {8'b0, p0};      // p0 is 8 bits; extend to 16 bits.
+    assign pp1 = {p1, 4'b0};      // p1 shifted left by 4 bits.
+    assign pp2 = {p2, 4'b0};      // p2 shifted left by 4 bits.
+    assign pp3 = {p3, 8'b0};      // p3 shifted left by 8 bits.
+    
+    // Sum the partial products
+    wire [15:0] sum0, sum1;
+    assign sum0 = pp0 + pp1;
+    assign sum1 = pp2 + pp3;
+    assign c = sum0 + sum1;
+
+endmodule
+
+//----------------------------
+// 4-Bit Vedic Multiplier Module
+//----------------------------
+// This module uses four 2-bit Vedic multipliers and half-adders to combine
+// the results. (A simple implementation is provided for reference.)
+//
+module vedic_4bit(
+    input  [3:0] a,      // 4-bit multiplicand
+    input  [3:0] b,      // 4-bit multiplier
+    output [7:0] c       // 8-bit product
+);
+    // Split into 2-bit halves
+    wire [1:0] a_low, a_high;
+    wire [1:0] b_low, b_high;
+    assign a_low  = a[1:0];
+    assign a_high = a[3:2];
+    assign b_low  = b[1:0];
+    assign b_high = b[3:2];
+    
+    // Partial products using 2-bit Vedic multipliers
+    wire [3:0] p0, p1, p2, p3;
+    vedic_2bit m0 (
+        .a(a_low),
+        .b(b_low),
+        .c(p0)
+    );
+    vedic_2bit m1 (
+        .a(a_high),
+        .b(b_low),
+        .c(p1)
+    );
+    vedic_2bit m2 (
+        .a(a_low),
+        .b(b_high),
+        .c(p2)
+    );
+    vedic_2bit m3 (
+        .a(a_high),
+        .b(b_high),
+        .c(p3)
+    );
+    
+    // Combine partial products:
+    // c = p0 + (p1 << 2) + (p2 << 2) + (p3 << 4)
+    wire [7:0] pp0, pp1, pp2, pp3;
+    assign pp0 = {4'b0, p0};       // p0 extended to 8 bits
+    assign pp1 = {p1, 2'b0};       // p1 shifted left by 2 bits
+    assign pp2 = {p2, 2'b0};       // p2 shifted left by 2 bits
+    assign pp3 = {p3, 4'b0};       // p3 shifted left by 4 bits
+    
+    wire [7:0] s0, s1;
+    assign s0 = pp0 + pp1;
+    assign s1 = pp2 + pp3;
+    assign c = s0 + s1;
+endmodule
+
+//----------------------------
+// 2-Bit Vedic Multiplier Module
+//----------------------------
+module vedic_2bit(
+    input  [1:0] a,      // 2-bit multiplicand
+    input  [1:0] b,      // 2-bit multiplier
+    output [3:0] c       // 4-bit product
+);
+    // Stage 1: Compute bit-level products
+    wire p0, p1, p2, p3;
+    assign c[0] = a[0] & b[0];
+    assign p0 = a[1] & b[0];
+    assign p1 = a[0] & b[1];
+    assign p2 = a[1] & b[1];
+    
+    // Stage 2: Sum p0 and p1 using a half adder
+    wire sum1, carry1;
+    half_adder ha0 (
+        .a(p0),
+        .b(p1),
+        .sum(sum1),
+        .carry(carry1)
+    );
+    
+    // Stage 3: Sum p2 and carry from previous half adder using another half adder
+    wire sum2, carry2;
+    half_adder ha1 (
+        .a(p2),
+        .b(carry1),
+        .sum(sum2),
+        .carry(carry2)
+    );
+    
+    assign c[1] = sum1;
+    assign c[2] = sum2;
+    assign c[3] = carry2;
+endmodule
+
+//----------------------------
+// Half Adder Module
+//----------------------------
+module half_adder(
+    input a,
+    input b,
+    output sum,
+    output carry
+);
+    assign sum   = a ^ b;
+    assign carry = a & b;
+endmodule

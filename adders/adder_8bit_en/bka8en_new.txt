@@ -1,0 +1,97 @@
+
+module brent_kung_adder_8_en (
+    input  [7:0] a,
+    input  [7:0] b,
+    input        cin,
+    input        enable,
+    output [7:0] sum,
+    output       cout
+);
+
+    // Preprocessing: Compute bit-level generate and propagate.
+    wire [7:0] g, p;
+    assign g = a & b;
+    assign p = a ^ b;
+
+    // Effective generate for bit 0 (includes cin)
+    wire g0_eff;
+    assign g0_eff = g[0] | (p[0] & cin);
+
+    // --- Up-Sweep Phase for lower 8 bits ---
+    // Stage 1: Form adjacent pairs.
+    // Bits [1:0]:
+    wire g1_0, p1_0;
+    assign g1_0 = g[1] | (p[1] & g0_eff);
+    assign p1_0 = p[1] & p[0];
+    // Bits [3:2]:
+    wire g3_2, p3_2;
+    assign g3_2 = g[3] | (p[3] & g[2]);
+    assign p3_2 = p[3] & p[2];
+
+    // Stage 2: Combine for bits 0-3.
+    wire g3_0, p3_0;
+    assign g3_0 = g3_2 | (p3_2 & g1_0);
+    assign p3_0 = p3_2 & p1_0;
+
+    // Stage 1 for upper nibble (bits 4-7):
+    // Bits [5:4]:
+    wire g5_4, p5_4;
+    assign g5_4 = g[5] | (p[5] & g[4]);
+    assign p5_4 = p[5] & p[4];
+    // Bits [7:6]:
+    wire g7_6, p7_6;
+    assign g7_6 = g[7] | (p[7] & g[6]);
+    assign p7_6 = p[7] & p[6];
+
+    // Stage 2 for upper nibble:
+    wire g7_4, p7_4;
+    assign g7_4 = g7_6 | (p7_6 & g5_4);
+    assign p7_4 = p7_6 & p5_4;
+
+    // Stage 3: Combine lower and upper halves.
+    wire g7_0, p7_0;
+    assign g7_0 = g7_4 | (p7_4 & g3_0);
+    assign p7_0 = p7_4 & p3_0;
+
+    // --- Down-Sweep Phase ---
+    // Build a carry vector c[0..8]:
+    wire [8:0] c;
+    assign c[0] = cin;
+    assign c[1] = g0_eff;
+    assign c[2] = g1_0;
+    assign c[3] = g[2]  | (p[2]  & c[2]);
+    assign c[4] = g3_0;
+    assign c[5] = g[4]  | (p[4]  & c[4]);
+    assign c[6] = g[5]  | (p[5]  & c[5]);
+    assign c[7] = g[6]  | (p[6]  & c[6]);
+    assign c[8] = g7_0;  // overall generate for bits [0:7]
+
+    // Compute sum bits.
+    wire [7:0] computed_sum;
+    assign computed_sum[0] = p[0] ^ cin;
+    assign computed_sum[1] = p[1] ^ c[1];
+    assign computed_sum[2] = p[2] ^ c[2];
+    assign computed_sum[3] = p[3] ^ c[3];
+    assign computed_sum[4] = p[4] ^ c[4];
+    assign computed_sum[5] = p[5] ^ c[5];
+    assign computed_sum[6] = p[6] ^ c[6];
+    assign computed_sum[7] = p[7] ^ c[7];
+    wire computed_cout;
+    assign computed_cout = c[8];
+
+    reg [7:0] out_sum;
+    reg       out_cout;
+    always @(*) begin
+        if (enable) begin
+            out_sum  = computed_sum;
+            out_cout = computed_cout;
+        end else begin
+            out_sum  = 8'd0;
+            out_cout = 1'b0;
+        end
+    end
+
+    assign sum = out_sum;
+    assign cout = out_cout;
+
+endmodule

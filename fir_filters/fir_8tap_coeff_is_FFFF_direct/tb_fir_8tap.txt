@@ -1,0 +1,183 @@
+
+
+module tb_fir_filter_8tap;
+    // ------------------------------------------------------------------------
+    // PARAMETERS
+    // ------------------------------------------------------------------------
+    parameter CLK_PERIOD = 10; // 10 ns clock
+    parameter N = 8;           // Number of taps (must match DUT)
+    
+    // DUT I/O
+    reg clk;
+    reg rst;
+    reg [15:0] x_in;
+    wire [31:0] y_out;
+    
+    // ------------------------------------------------------------------------
+    // INSTANTIATE THE DUT
+    // ------------------------------------------------------------------------
+    fir_filter_8tap dut (
+        .clk(clk),
+        .rst(rst),
+        .x_in(x_in),
+        .y_out(y_out)
+    );
+    
+    // ------------------------------------------------------------------------
+    // CLOCK GENERATION
+    // ------------------------------------------------------------------------
+    initial begin
+        clk = 1'b0;
+        forever #(CLK_PERIOD/2) clk = ~clk;
+    end
+    
+    // ------------------------------------------------------------------------
+    // REFERENCE MODEL SIGNALS
+    // ------------------------------------------------------------------------
+    // Coefficients: same as DUT (8 x 16'hFFFF).
+    // You can change these to match your actual filter design.
+    reg [15:0] coeffs [0:N-1];
+    
+    // Delay model for the input samples (software shift register)
+    reg [15:0] x_model [0:N-1];
+    
+    // Expected output accumulator
+    reg [31:0] expected_out;
+    
+    // ------------------------------------------------------------------------
+    // TESTBENCH INITIALIZATION
+    // ------------------------------------------------------------------------
+    integer i;
+    initial begin
+        // Initialize coefficients to match DUT
+        coeffs[0] = 16'hFFFF;
+        coeffs[1] = 16'hFFFF;
+        coeffs[2] = 16'hFFFF;
+        coeffs[3] = 16'hFFFF;
+        coeffs[4] = 16'hFFFF;
+        coeffs[5] = 16'hFFFF;
+        coeffs[6] = 16'hFFFF;
+        coeffs[7] = 16'hFFFF;
+        
+        // Initialize model shift register
+        for (i = 0; i < N; i = i + 1) begin
+            x_model[i] = 16'd0;
+        end
+        expected_out = 32'd0;
+    end
+    
+    // ------------------------------------------------------------------------
+    // RESET AND STIMULUS
+    // ------------------------------------------------------------------------
+    initial begin
+        // Start with reset asserted
+        rst   = 1'b1;
+        x_in  = 16'd0;
+        
+        // Hold reset active for a few cycles
+        #(3*CLK_PERIOD);
+        rst = 1'b0;  // Deassert reset
+        #(2*CLK_PERIOD);
+        
+        // Feed a series of input samples
+        x_in = 16'h0001;  #(CLK_PERIOD);
+        x_in = 16'h10DF;  #(CLK_PERIOD);
+        x_in = 16'h25FE;  #(CLK_PERIOD);
+        x_in = 16'h398A;  #(CLK_PERIOD);
+        x_in = 16'h7844;  #(CLK_PERIOD);
+        x_in = 16'h1EF; #(CLK_PERIOD);
+        x_in = 16'h8000; #(CLK_PERIOD);
+        x_in = 16'hFFFF; #(CLK_PERIOD);  
+        x_in = 16'h10; #(CLK_PERIOD);
+        x_in = 16'hABCD;  #(CLK_PERIOD);
+        rst   = 1'b1; #(CLK_PERIOD);
+        x_in = 16'h1234;
+        rst   = 1'b0; #(CLK_PERIOD);
+		
+		#(2*CLK_PERIOD);
+		
+		// Apply a new sequence
+        #10 x_in = 16'hABCD;  
+        #10 x_in = 16'hEF89;  
+        #10 x_in = 16'hFFBD;  
+        #10 x_in = 16'hFFFF;  
+        #10 x_in = 16'h4592;  
+        #10 x_in = 16'h1036;
+        #10 x_in = 16'h3198;  
+        #10 x_in = 16'h0077;  
+        #10 x_in = 16'h8800;  
+        #10 x_in = 16'hABD5;  
+        #10 x_in = 16'hEAFD;  
+        #10 x_in = 16'h5A6F;
+        
+        
+        
+        #(2*CLK_PERIOD);
+        
+        $finish;
+    end
+    
+    // ------------------------------------------------------------------------
+    // REFERENCE MODEL: SHIFT REGISTER + ACCUMULATOR
+    // ------------------------------------------------------------------------
+    // On every rising edge of clk (when rst=0), shift x_in into x_model
+    // and compute the expected output as sum of products with coeffs.
+    always @(posedge clk) begin
+        if (rst) begin
+            // Synchronous reset logic
+            for (i = 0; i < N; i = i + 1) begin
+                x_model[i] <= 16'd0;
+            end
+            expected_out <= 32'd0;
+        end
+        else begin
+            // Shift register
+            for (i = N-1; i > 0; i = i - 1) begin
+                x_model[i] <= x_model[i-1];
+            end
+            x_model[0] <= x_in;
+            
+            // Accumulate sum
+            // In a real design, you might do a for-loop:
+            //   sum = x_model[0]*coeffs[0] + ... + x_model[7]*coeffs[7]
+            // We'll do it explicitly here:
+            expected_out <= (x_model[0] * coeffs[0]) +
+                            (x_model[1] * coeffs[1]) +
+                            (x_model[2] * coeffs[2]) +
+                            (x_model[3] * coeffs[3]) +
+                            (x_model[4] * coeffs[4]) +
+                            (x_model[5] * coeffs[5]) +
+                            (x_model[6] * coeffs[6]) +
+                            (x_model[7] * coeffs[7]);
+        end
+    end
+    
+    // ------------------------------------------------------------------------
+    // SELF-CHECKING LOGIC
+    // ------------------------------------------------------------------------
+    // Compare y_out (DUT) with expected_out (reference) a short time after
+    // the clock edge to allow for any delta-cycle delays in simulation.
+    reg verify_flag;
+    always @(posedge clk) begin
+        verify_flag <= ~rst; // Only verify when rst=0
+    end
+    
+    always @(posedge verify_flag) begin
+        #2;  // small delay
+        if (y_out !== expected_out) begin
+            $display("ERROR at time %0t: DUT=%h, REF=%h, DIFF=%d",
+                     $time, y_out, expected_out, y_out - expected_out);
+        end else begin
+            $display("PASS at time %0t: Output = %h is matched with expected out = %h",
+                     $time, y_out, expected_out);
+        end
+    end
+    
+    // Optional: Monitor signals for debugging
+     initial begin
+         $monitor("t=%0t | rst=%b | x_in=%d | y_out=%d | expected_out=%d",
+                   $time, rst, x_in, y_out, expected_out);
+     end
+
+endmodule
+

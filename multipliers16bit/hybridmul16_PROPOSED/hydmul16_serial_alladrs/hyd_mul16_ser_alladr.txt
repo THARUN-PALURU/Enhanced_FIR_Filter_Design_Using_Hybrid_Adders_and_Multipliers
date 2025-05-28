@@ -1,0 +1,191 @@
+
+
+module mul_h16(
+    input [15:0] A, // 16-bit input
+    input [15:0] B, // 16-bit input
+    input en,       // Enable signal
+    output reg [31:0] Product   //32-bit output i.e result of 16 bit product
+    );
+    reg [31:0] pp0, pp1, pp2, pp3, pp4, pp5, pp6, pp7, pp8, pp9, pp10, pp11, pp12, pp13, pp14, pp15;
+    wire [31:0] s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14;
+	wire [14:0] C;
+   // Generate partial products with extended width
+     always @(*) begin
+        if(en) begin
+            pp0  = {16'b0, (A & {16{B[0]}})}  << 0;
+            pp1  = {16'b0, (A & {16{B[1]}})}  << 1;
+            pp2  = {16'b0, (A & {16{B[2]}})}  << 2;
+            pp3  = {16'b0, (A & {16{B[3]}})}  << 3;
+            pp4  = {16'b0, (A & {16{B[4]}})}  << 4;
+            pp5  = {16'b0, (A & {16{B[5]}})}  << 5;
+            pp6  = {16'b0, (A & {16{B[6]}})}  << 6;
+            pp7  = {16'b0, (A & {16{B[7]}})}  << 7;
+            pp8  = {16'b0, (A & {16{B[8]}})}  << 8;
+            pp9  = {16'b0, (A & {16{B[9]}})}  << 9;
+            pp10 = {16'b0, (A & {16{B[10]}})} << 10;
+            pp11 = {16'b0, (A & {16{B[11]}})} << 11;
+            pp12 = {16'b0, (A & {16{B[12]}})} << 12;
+            pp13 = {16'b0, (A & {16{B[13]}})} << 13;
+            pp14 = {16'b0, (A & {16{B[14]}})} << 14;
+            pp15 = {16'b0, (A & {16{B[15]}})} << 15;
+        end else begin
+            pp0  = 32'b0; pp1  = 32'b0; pp2  = 32'b0; pp3  = 32'b0;
+            pp4  = 32'b0; pp5  = 32'b0; pp6  = 32'b0; pp7  = 32'b0;
+            pp8  = 32'b0; pp9  = 32'b0; pp10 = 32'b0; pp11 = 32'b0;
+            pp12 = 32'b0; pp13 = 32'b0; pp14 = 32'b0; pp15 = 32'b0;
+        end
+    end
+
+	
+	hyd_adr32 add0(
+		.A(pp0),
+		.B(pp1),
+		.Cin(1'b0),
+		.enable(en),
+		.Sum(s0),
+		.Cout(C[0])
+	);
+	
+	hyd_adr32 add1(
+		.A(s0),
+		.B(pp2),
+		.Cin(C[0]),
+		.enable(en),
+		.Sum(s1),
+		.Cout(C[1])
+	);
+	
+	hyd_adr32 add2(
+		.A(s1),
+		.B(pp3),
+		.Cin(C[1]),
+		.enable(en),
+		.Sum(s2),
+		.Cout(C[2])
+	);
+	
+	hyd_adr32 add3(
+		.A(s2),
+		.B(pp4),
+		.Cin(C[2]),
+		.enable(en),
+		.Sum(s3),
+		.Cout(C[3])
+	);
+	
+	hyd_adr32 add4(
+		.A(s3),
+		.B(pp5),
+		.Cin(C[3]),
+		.enable(en),
+		.Sum(s4),
+		.Cout(C[4])
+	);
+	
+	hyd_adr32 add5(
+		.A(s4),
+		.B(pp6),
+		.Cin(C[4]),
+		.enable(en),
+		.Sum(s5),
+		.Cout(C[5])
+	);
+	
+	hyd_adr32 add6(
+		.A(s5),
+		.B(pp7),
+		.Cin(C[5]),
+		.enable(en),
+		.Sum(s6),
+		.Cout(C[6])
+	);
+	
+	hyd_adr32 add7(
+		.A(s6),
+		.B(pp8),
+		.Cin(C[6]),
+		.enable(en),
+		.Sum(s7),
+		.Cout(C[7])
+	);
+	
+	hyd_adr32 add8(
+		.A(s7),
+		.B(pp9),
+		.Cin(C[7]),
+		.enable(en),
+		.Sum(s8),
+		.Cout(C[8])
+	);
+	
+	hyd_adr32 add9(
+		.A(s8),
+		.B(pp10),
+		.Cin(C[8]),
+		.enable(en),
+		.Sum(s9),
+		.Cout(C[9])
+	);
+	
+	hyd_adr32 add10(
+		.A(s9),
+		.B(pp11),
+		.Cin(C[9]),
+		.enable(en),
+		.Sum(s10),
+		.Cout(C[10])
+	);
+	
+	hyd_adr32 add11(
+		.A(s10),
+		.B(pp12),
+		.Cin(C[10]),
+		.enable(en),
+		.Sum(s11),
+		.Cout(C[11])
+	);
+	
+	hyd_adr32 add12(
+		.A(s11),
+		.B(pp13),
+		.Cin(C[11]),
+		.enable(en),
+		.Sum(s12),
+		.Cout(C[12])
+	);
+	
+	hyd_adr32 add13(
+		.A(s12),
+		.B(pp14),
+		.Cin(C[12]),
+		.enable(en),
+		.Sum(s13),
+		.Cout(C[13])
+	);
+	
+	hyd_adr32 add14(
+		.A(s13),
+		.B(pp15),
+		.Cin(C[13]),
+		.enable(en),
+		.Sum(s14),
+		.Cout(C[14])
+	);
+	
+	
+	
+  always @* begin
+    if(en) begin
+        Product <= s14;
+    end
+    else begin
+        Product <= 32'b0;
+     end
+     
+   end
+       
+endmodule
+
+
+
+

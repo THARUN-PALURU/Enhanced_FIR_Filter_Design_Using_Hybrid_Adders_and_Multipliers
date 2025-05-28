@@ -1,0 +1,30 @@
+
+
+module partial_product(
+
+    input  [15:0] A,
+    input  [15:0] B,
+    output [31:0] ans
+);
+    wire [31:0] PP0,  PP1,  PP2,  PP3,  PP4,  PP5,  PP6,  PP7,
+                PP8,  PP9,  PP10, PP11, PP12, PP13, PP14, PP15;
+    assign PP0  = {16'b0, (A & {16{B[0]}})}  << 0;
+    assign PP1  = {16'b0, (A & {16{B[1]}})}  << 1;
+    assign PP2  = {16'b0, (A & {16{B[2]}})}  << 2;
+    assign PP3  = {16'b0, (A & {16{B[3]}})}  << 3;
+    assign PP4  = {16'b0, (A & {16{B[4]}})}  << 4;
+    assign PP5  = {16'b0, (A & {16{B[5]}})}  << 5;
+    assign PP6  = {16'b0, (A & {16{B[6]}})}  << 6;
+    assign PP7  = {16'b0, (A & {16{B[7]}})}  << 7;
+    assign PP8  = {16'b0, (A & {16{B[8]}})}  << 8;
+    assign PP9  = {16'b0, (A & {16{B[9]}})}  << 9;
+    assign PP10 = {16'b0, (A & {16{B[10]}})} << 10;
+    assign PP11 = {16'b0, (A & {16{B[11]}})} << 11;
+    assign PP12 = {16'b0, (A & {16{B[12]}})} << 12;
+    assign PP13 = {16'b0, (A & {16{B[13]}})} << 13;
+    assign PP14 = {16'b0, (A & {16{B[14]}})} << 14;
+    assign PP15 = {16'b0, (A & {16{B[15]}})} << 15;
+
+   assign ans = PP15;
+
+endmodule

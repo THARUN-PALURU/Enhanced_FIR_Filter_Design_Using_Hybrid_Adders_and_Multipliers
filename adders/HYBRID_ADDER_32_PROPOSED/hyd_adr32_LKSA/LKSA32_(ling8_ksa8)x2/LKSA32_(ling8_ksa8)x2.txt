@@ -1,0 +1,84 @@
+
+
+// Top-level module: 32-bit Hybrid Adder built from four 8-bit adders
+module Lksa32 #(parameter N = 32) (
+    input  [N-1:0] a,      // 32-bit input operand A
+    input  [N-1:0] b,      // 32-bit input operand B
+    input         cin,     // Carry-in
+    input         enable,  // Enable signal (for operand isolation / power gating)
+    output reg [N-1:0] sum,   // 32-bit sum output
+    output reg cout           // Final carry output
+);
+
+    // Internal wires for the four 8-bit partial sums and intermediate carries.
+    wire [7:0] lower_sum1;  // Sum for bits [7:0]
+    wire [7:0] lower_sum2;  // Sum for bits [15:8]
+    wire [7:0] upper_sum1;  // Sum for bits [23:16]
+    wire [7:0] upper_sum2;  // Sum for bits [31:24]
+    wire carin1, carin2, carin3, carin4; // Intermediate carry signals
+
+    //-------------------------------------------------------------------------
+    // Lower 8 bits using Ling adder.
+    //-------------------------------------------------------------------------
+    ling_adder_8bit_en lower1_8bit (
+        .A(a[7:0]),
+        .B(b[7:0]),
+        .Cin(cin),
+        .enable(enable),    // Pass the enable signal
+        .Sum(lower_sum1),
+        .CarryOut(carin1)
+    );
+    
+    //-------------------------------------------------------------------------
+    // Next 8 bits (bits [15:8]) using a Kogge-Stone or Brent-Kung style 8-bit adder.
+    // Here we use a module named ksa_en_8.
+    //-------------------------------------------------------------------------
+    kogge_stone_8bit_en lower2_8bit (
+        .A(a[15:8]),
+        .B(b[15:8]),
+        .Cin(carin1),
+        .enable(enable),    // Pass the enable signal
+        .Sum(lower_sum2),
+        .Cout(carin2)
+    );
+    
+    //-------------------------------------------------------------------------
+    // Next 8 bits (bits [23:16]) using another Ling 8-bit adder.
+    //-------------------------------------------------------------------------
+    ling_adder_8bit_en upper1_8bit (
+        .A(a[23:16]),
+        .B(b[23:16]),
+        .Cin(carin2),
+        .enable(enable),    // Pass the enable signal
+        .Sum(upper_sum1),
+        .CarryOut(carin3)
+    );
+    
+    //-------------------------------------------------------------------------
+    // Upper 8 bits (bits [31:24]) using a Kogge-Stone/Brent-Kung style 8-bit adder.
+    //-------------------------------------------------------------------------
+   kogge_stone_8bit_en upper2_8bit (
+        .A(a[31:24]),
+        .B(b[31:24]),
+        .Cin(carin3),
+        .enable(enable),    // Pass the enable signal
+        .Sum(upper_sum2),
+        .Cout(carin4)
+    );
+    
+    //-------------------------------------------------------------------------
+    // Concatenate the partial sums into a single 32-bit result.
+    // The overall carry-out comes from the final block.
+    // Using an always block with if-else, the outputs are set to zero when enable is low.
+    //-------------------------------------------------------------------------
+    always @(*) begin
+        if (enable) begin
+            sum = {upper_sum2, upper_sum1, lower_sum2, lower_sum1}; // Final 32-bit sum
+            cout = carin4;                                          // Overall carry-out
+        end else begin
+            sum = 32'd0;
+            cout = 1'b0;
+        end
+    end
+
+endmodule

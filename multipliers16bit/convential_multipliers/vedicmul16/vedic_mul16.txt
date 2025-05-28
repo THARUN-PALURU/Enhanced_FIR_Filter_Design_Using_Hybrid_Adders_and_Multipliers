@@ -1,0 +1,220 @@
+
+module vedic_16bit(
+    input [15:0] a,
+    input [15:0] b,
+    output [31:0] c
+    );
+    // temporary variables
+   wire [15:0]q0;    
+   wire [15:0]q1;    
+   wire [15:0]q2;
+   wire [15:0]q3;  
+   wire [15:0]q4;
+   wire [23:0]q5;
+   wire [23:0]q6;  
+   wire [15:0]temp0;
+   wire [23:0]temp1;
+   wire [23:0]temp2;
+   wire [23:0]temp3;
+  
+   
+   // using 4 2x2 multipliers
+   vedic_8bit v1(a[7:0],b[7:0],q0[15:0]);
+   vedic_8bit v2(a[15:8],b[7:0],q1[15:0]);
+   vedic_8bit v3(a[7:0],b[15:8],q2[15:0]);
+   vedic_8bit v4(a[15:8],b[15:8],q3[15:0]);
+   
+   
+   // stage 1 adders 
+   assign temp0 ={8'b0,q0[15:8]};
+   assign temp1 ={8'b0,q2[15:0]};
+   assign temp2 ={q3[15:0],8'b0};
+   assign temp3={8'b0,q4[15:0]};
+   
+   half_adder_16bit h1(q1[15:0],temp0,q4);
+   half_adder_24bit h2(temp1,temp2,q5);
+
+  
+   
+   
+   // stage 2 adder 
+   half_adder_24bit h3(temp3,q5,q6);
+   
+   
+   // fnal output assignment 
+   assign c[7:0]=q0[7:0];
+   assign c[31:8]=q6[23:0];
+
+endmodule
+module vedic_2bit(
+    input [1:0]a,
+    input [1:0]b,
+    output [3:0]c
+    );
+    
+    //temporary variable
+    wire [3:0]temp;
+    
+    
+    //stage 1
+    // four multiplication operation of bits accourding to vedic logic done using and gates 
+    assign c[0]=a[0]&b[0]; 
+    assign temp[0]=a[1]&b[0];
+    assign temp[1]=a[0]&b[1];
+    assign temp[2]=a[1]&b[1];
+    
+    
+    //stage two 
+    // using two half adders 
+    half_adder h1(temp[0],temp[1],c[1],temp[3]);
+    half_adder h2(temp[2],temp[3],c[2],c[3]);
+endmodule
+module vedic_4bit(
+    input [3:0] a,
+    input [3:0] b,
+    output [7:0] c
+    );
+    // temporary variables
+    wire [3:0]q0;	
+    wire [3:0]q1;    
+    wire [3:0]q2;
+    wire [3:0]q3;  
+    wire [3:0]q4;
+    wire [5:0]q5;
+    wire [5:0]q6;  
+    wire [3:0]temp0;
+    wire [5:0]temp1;
+    wire [5:0]temp2;
+    wire [5:0]temp3;
+   
+    
+    // using 4 2x2 multipliers
+    vedic_2bit v1(a[1:0],b[1:0],q0[3:0]);
+    vedic_2bit v2(a[3:2],b[1:0],q1[3:0]);
+    vedic_2bit v3(a[1:0],b[3:2],q2[3:0]);
+    vedic_2bit v4(a[3:2],b[3:2],q3[3:0]);
+    
+    
+    // stage 1 adders 
+    assign temp0 ={2'b0,q0[3:2]};
+    assign temp1 ={2'b0,q2[3:0]};
+    assign temp2 ={q3[3:0],2'b0};
+    assign temp3={2'b0,q4[3:0]};
+    
+    half_adder_4bit h1(q1[3:0],temp0,q4);
+    half_adder_6bit h2(temp1,temp2,q5);
+
+   
+    
+    
+    // stage 2 adder 
+    half_adder_6bit h3(temp3,q5,q6);
+    
+    
+    // fnal output assignment 
+    assign c[1:0]=q0[1:0];
+    assign c[7:2]=q6[5:0];
+
+endmodule
+module vedic_8bit(
+    input [7:0] a,
+    input [7:0] b,
+    input [15:0] c
+    );
+    // temporary variables
+   wire [7:0]q0;    
+   wire [7:0]q1;    
+   wire [7:0]q2;
+   wire [7:0]q3;  
+   wire [7:0]q4;
+   wire [11:0]q5;
+   wire [11:0]q6;  
+   wire [7:0]temp0;
+   wire [11:0]temp1;
+   wire [11:0]temp2;
+   wire [11:0]temp3;
+  
+   
+   // using 4 2x2 multipliers
+   vedic_4bit v1(a[3:0],b[3:0],q0[7:0]);
+   vedic_4bit v2(a[7:4],b[3:0],q1[7:0]);
+   vedic_4bit v3(a[3:0],b[7:4],q2[7:0]);
+   vedic_4bit v4(a[7:4],b[7:4],q3[7:0]);
+   
+   
+   // stage 1 adders 
+   assign temp0 ={4'b0,q0[7:4]};
+   assign temp1 ={4'b0,q2[7:0]};
+   assign temp2 ={q3[7:0],4'b0};
+   assign temp3={4'b0,q4[7:0]};
+   
+   half_adder_8bit h1(q1[7:0],temp0,q4);
+   half_adder_12bit h2(temp1,temp2,q5);
+
+  
+   
+   
+   // stage 2 adder 
+   half_adder_12bit h3(temp3,q5,q6);
+   
+   
+   // fnal output assignment 
+   assign c[3:0]=q0[3:0];
+   assign c[15:4]=q6[11:0];
+
+endmodule
+module half_adder(
+    input a,
+    input b,
+    output s,
+    output c
+    );
+    
+    
+    // half adder expression
+    assign s= a ^ b;
+    assign c= a & b;
+endmodule
+module half_adder_12bit(
+    input [11:0] a,
+    input [11:0] b,
+    output [11:0] c
+    );
+    assign c=a+b;
+endmodule
+module half_adder_16bit(
+    input [15:0] a,
+    input [15:0] b,
+    output [15:0] c
+    );
+    assign c=a+b;
+endmodule
+module half_adder_24bit(
+    input [23:0] a,
+    input [23:0] b,
+    output [23:0] c
+    );
+    assign c=a+b;
+endmodule
+module half_adder_4bit(
+    input [3:0] a,
+    input [3:0] b,
+    output [3:0] c
+    );
+    assign c =a+b;
+endmodule
+module half_adder_6bit(
+    input [5:0] a,
+    input [5:0] b,
+    output [5:0] c
+    );
+     assign c =a+b;
+endmodule
+module half_adder_8bit(
+    input [7:0] a,
+    input [7:0] b,
+    input [7:0] c
+    );
+    assign c=a+b;
+endmodule
+

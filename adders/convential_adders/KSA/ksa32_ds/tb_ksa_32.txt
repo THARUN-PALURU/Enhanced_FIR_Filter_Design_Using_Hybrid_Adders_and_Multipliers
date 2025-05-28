@@ -1,0 +1,222 @@
+module tb_KSA_32bit;
+    reg [31:0] a, b;        // 32-bit inputs
+    reg cin;                // Carry-in
+    wire [31:0] sum;        // 32-bit sum output
+    wire cout;              // Carry-out
+    reg [31:0] pp [0:20];   // Partial product storage
+    reg [32:0] s [0:20];    // Sum storage (33-bit: carry + sum)
+
+ 
+    // Instantiate the Unit Under Test (UUT)
+    kogge_stone_adder32 uut (
+        .a(a),
+        .b(b),
+        .cin(cin),
+        .sum(sum),
+        .cout(cout)
+    );
+
+    initial begin
+        // Initialize partial products
+        pp[0] = 32'h0000FFFF;
+        pp[1] = 32'hABC1FFFE;
+        pp[2] = 32'h0003FFFC;
+        pp[3] = 32'hDDD7FFF8;
+        pp[4] = 32'h000FFFF0;
+        pp[5] = 32'h001FFFE0;
+        pp[6] = 32'h003FFFC0;
+        pp[7] = 32'h007FFF80;
+        pp[8] = 32'h00FFFF00;
+        pp[9] = 32'h01FFFE00;
+        pp[10] = 32'h03FFFC00;
+        pp[11] = 32'hFFFFF800;
+        pp[12] = 32'h0FFFF000;
+        pp[13] = 32'h1FFFEABC;
+        pp[14] = 32'h3FFFC0AE;
+        pp[15] = 32'h7FFF8EDC;
+        pp[16] = 32'ha5a5a5a5;
+        pp[17] = 32'h52525252;
+        pp[18] = 32'h00000000;
+        pp[19] = 32'hABCDEFFF;
+        pp[20] = 32'hFFFFFFFF;
+
+        // Compute expected sums
+        s[0] = pp[0] + pp[1];
+        s[1] = s[0] + pp[2];
+        s[2] = s[1] + pp[3];
+        s[3] = s[2] + pp[4];
+        s[4] = s[3] + pp[5];
+        s[5] = s[4] + pp[6];
+        s[6] = s[5] + pp[7];
+        s[7] = s[6] + pp[8];
+        s[8] = s[7] + pp[9];
+        s[9] = s[8] + pp[10];
+        s[10] = s[9] + pp[11];
+        s[11] = s[10] + pp[12];
+        s[12] = s[11] + pp[13];
+        s[13] = s[12] + pp[14];
+        s[14] = s[13] + pp[15];
+        s[15] = pp[11] + pp[15];
+        s[16] = pp[16] + pp[17];
+        s[17] = pp[18] + pp[19];
+        s[18] = pp[20] + pp[13];
+        s[19] = pp[20] + pp[20];
+        s[20] = pp[20] + pp[20];
+
+        // Manually expanded test cases
+		
+		// Test Case 0
+        #10;
+        a = 0; b = 0; cin = 0;
+        #10;
+        check_result(1, a, b, cin, {cout, sum});
+		
+		
+        // Test Case 1
+        #10;
+        a = s[0][31:0]; b = pp[1]; cin = 0;
+        #10;
+        check_result(1, a, b, cin, {cout, sum});
+
+        // Test Case 2
+        #10;
+        a = s[1][31:0]; b = pp[2]; cin = 1;
+        #10;
+        check_result(2, a, b, cin, {cout, sum});
+
+        // Test Case 3
+        #10;
+        a = s[2][31:0]; b = pp[3]; cin = 0;
+        #10;
+        check_result(3, a, b, cin, {cout, sum});
+
+        // Continue this pattern for all 20 test cases...
+        // Test Case 4
+        #10;
+        a = s[3][31:0]; b = pp[4]; cin = 0;
+        #10;
+        check_result(4, a, b, cin, {cout, sum});
+        
+        // Test Case 5
+        #10;
+        a = s[4][31:0]; b = pp[5]; cin = 1;
+        #10;
+        check_result(5, a, b, cin, {cout, sum});
+        
+        // Test Case 6
+        #10;
+        a = s[5][31:0]; b = pp[6]; cin = 0;
+        #10;
+        check_result(6, a, b, cin, {cout, sum});
+        
+        // Test Case 7
+        #10;
+        a = s[6][31:0]; b = pp[7]; cin = 1;
+        #10;
+        check_result(7, a, b, cin, {cout, sum});
+        
+        // Test Case 8
+        #10;
+        a = s[7][31:0]; b = pp[8]; cin = 0;
+        #10;
+        check_result(8, a, b, cin, {cout, sum});
+        
+        // Test Case 9
+        #10;
+        a = s[8][31:0]; b = pp[9]; cin = 1;
+        #10;
+        check_result(9, a, b, cin, {cout, sum});
+        
+        // Test Case 10
+        #10;
+        a = s[9][31:0]; b = pp[10]; cin = 0;
+        #10;
+        check_result(10, a, b, cin, {cout, sum});
+        
+        // Test Case 11
+        #10;
+        a = s[10][31:0]; b = pp[11]; cin = 1;
+        #10;
+        check_result(11, a, b, cin, {cout, sum});
+        
+        // Test Case 12
+        #10;
+        a = s[11][31:0]; b = pp[12]; cin = 0;
+        #10;
+        check_result(12, a, b, cin, {cout, sum});
+        
+        // Test Case 13
+        #10;
+        a = s[12][31:0]; b = pp[13]; cin = 1;
+        #10;
+        check_result(13, a, b, cin, {cout, sum});
+        
+        // Test Case 14
+        #10;
+        a = s[13][31:0]; b = pp[14]; cin = 0;
+        #10;
+        check_result(14, a, b, cin, {cout, sum});
+        
+        // Test Case 15
+        #10;
+        a = s[14][31:0]; b = pp[15]; cin = 1;
+        #10;
+        check_result(15, a, b, cin, {cout, sum});
+        
+        // Test Case 16
+        #10;
+        a = s[15][31:0]; b = pp[16]; cin = 0;
+        #10;
+        check_result(16, a, b, cin, {cout, sum});
+        
+        // Test Case 17
+        #10;
+        a = s[16][31:0]; b = pp[17]; cin = 1;
+        #10;
+        check_result(17, a, b, cin, {cout, sum});
+        
+        // Test Case 18
+        #10;
+        a = s[17][31:0]; b = pp[18]; cin = 0;
+        #10;
+        check_result(18, a, b, cin, {cout, sum});
+        
+        // Test Case 19
+        #10;
+        a = s[18][31:0]; b = pp[19]; cin = 1;
+        #10;
+        check_result(19, a, b, cin, {cout, sum});
+    
+   
+    
+        
+        // Test Case 20
+        #10;
+        a = s[19][31:0]; b = pp[20]; cin = 1;
+        #10;
+        check_result(20, a, b, cin, {cout, sum});
+
+        #10;
+        $display("Testbench Execution Complete.");
+        $finish;
+    end
+
+    task check_result;
+        input integer test_num;
+        input [31:0] a_val, b_val;
+        input cin_val;
+        input [32:0] result;
+        reg  [32:0] expected;
+        begin
+            expected = a_val + b_val + cin_val;
+            $display("Test Case %0d: A = %h, B = %h, Cin = %b", test_num, a_val, b_val, cin_val);
+            $display("  Result:   Sum = %h, Cout = %b", result[31:0], result[32]);
+            $display("  Expected: Sum = %h, Cout = %b", expected[31:0], expected[32]);
+            
+            if (result === expected)
+                $display("  Status: Passed");
+            else
+                $display("  Status: Failed");
+        end
+    endtask
+endmodule 

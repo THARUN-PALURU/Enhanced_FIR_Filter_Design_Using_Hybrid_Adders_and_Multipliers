@@ -1,0 +1,103 @@
+
+
+module hybrid_32bit_adder_4x8_diff_en (
+    input  [31:0] A,         // 32-bit operand A
+    input  [31:0] B,         // 32-bit operand B
+    input         Cin,       // Overall carry-in
+    input         enable,    // Global enable/power-gating signal
+    output [31:0] Sum,       // 32-bit sum output
+    output        Cout       // Overall carry-out
+);
+
+    // Partition the 32-bit operands into four 8-bit groups.
+    wire [7:0] A0, A1, A2, A3;
+    wire [7:0] B0, B1, B2, B3;
+    assign A0 = A[7:0];
+    assign A1 = A[15:8];
+    assign A2 = A[23:16];
+    assign A3 = A[31:24];
+    
+    assign B0 = B[7:0];
+    assign B1 = B[15:8];
+    assign B2 = B[23:16];
+    assign B3 = B[31:24];
+    
+    // Wires for each 8-bit adder's result and carry.
+    wire [7:0] Sum0, Sum1, Sum2, Sum3;
+    wire       Cout0, Cout1, Cout2, Cout3;
+    
+    //-------------------------------------------------------------------------
+    // Instantiate four different 8-bit adder blocks (each with an enable input).
+    //-------------------------------------------------------------------------
+    
+    // Block 0: Use Ling 8-bit Adder with Enable.
+    ling_adder_8bit_en adder1 (
+        .A(A0),
+        .B(B0),
+        .Cin(Cin),
+        .enable(enable),
+        .Sum(Sum0),
+        .CarryOut(Cout0)
+    );
+    
+    // Block 1: Use Brent-Kung 8-bit Adder with Enable.
+    brent_kung_adder_8_en adder2 (
+        .a(A1),
+        .b(B1),
+        .cin(Cout0),   // Carry-in is the carry-out of block 0.
+        .enable(enable),
+        .sum(Sum1),
+        .cout(Cout1)
+    );
+    
+    // Block 2: Use Full Kogge-Stone 8-bit Adder with Enable.
+    kogge_stone_8bit_en adder3 (
+        .A(A2),
+        .B(B2),
+        .Cin(Cout1),   // Carry-in from block 1.
+        .enable(enable),
+        .Sum(Sum2),
+        .Cout(Cout2)
+    );
+    
+    // Block 3: Use Sparse Kogge-Stone 8-bit Adder with Enable.
+    sparse_kogge_stone_adder_8_en adder4 (
+        .a(A3),
+        .b(B3),
+        .cin(Cout2),   // Carry-in from block 2.
+        .enable(enable),
+        .sum(Sum3),
+        .cout(Cout3)
+    );
+    
+    //-------------------------------------------------------------------------
+    // Combine the four 8-bit results into a 32-bit result.
+    //-------------------------------------------------------------------------
+    wire [31:0] combined_sum;
+    assign combined_sum = {Sum3, Sum2, Sum1, Sum0};
+    
+    // Overall carry-out comes from the last adder block.
+    wire combined_cout;
+    assign combined_cout = Cout3;
+    
+    //-------------------------------------------------------------------------
+    // Final output gating: If enable is high, pass through the computed results;
+    // otherwise, force the outputs to zero.
+    //-------------------------------------------------------------------------
+    reg [31:0] out_Sum;
+    reg        out_Cout;
+    always @(*) begin
+        if (enable) begin
+            out_Sum  = combined_sum;
+            out_Cout = combined_cout;
+        end else begin
+            out_Sum  = 32'd0;
+            out_Cout = 1'b0;
+        end
+    end
+
+    assign Sum  = out_Sum;
+    assign Cout = out_Cout;
+
+endmodule
+

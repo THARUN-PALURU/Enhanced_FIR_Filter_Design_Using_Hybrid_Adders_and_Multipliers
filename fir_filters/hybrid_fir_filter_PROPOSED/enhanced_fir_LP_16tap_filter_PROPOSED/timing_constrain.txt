@@ -1,0 +1,17 @@
+# Clock constraint
+create_clock -name clk -period 30.0 [get_ports clk]
+
+# Define input delay relative to the clock
+set_input_delay -clock clk -max 2.5 [get_ports data_in]
+set_input_delay -clock clk -min 1.0 [get_ports data_in]
+
+set_input_delay -clock clk -max 2.5 [get_ports reset]
+set_input_delay -clock clk -min 1.0 [get_ports reset]
+
+set_input_delay -clock clk -max 2.5 [get_ports enable]
+set_input_delay -clock clk -min 1.0 [get_ports enable]
+
+
+# Define output delay relative to the clock
+set_output_delay -clock clk -max 2.5 [get_ports data_out]
+set_output_delay -clock clk -min 1.0 [get_ports data_out]
